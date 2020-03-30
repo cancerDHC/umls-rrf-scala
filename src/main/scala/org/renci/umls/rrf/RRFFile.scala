@@ -8,5 +8,6 @@ import scala.io.Source
   * Wraps a single RRF file.
   */
 class RRFFile(val file: File, val filename: String) {
-  val cols: Seq[Array[String]] = Source.fromFile(file).getLines.map(_.split("\\|")).toSeq
+  /** A list of all rows in this file. */
+  val rows: Seq[IndexedSeq[String]] = Source.fromFile(file).getLines.map(_.split("\\|").toIndexedSeq).toSeq
 }

@@ -42,5 +42,5 @@ object CodeMapper extends App with LazyLogging {
   val rrfDir = new RRFDir(conf.rrfDir())
   logger.info("Loaded directory for release: " + rrfDir.releaseInfo)
 
-  rrfDir.cols.asColumns.foreach(col => logger.info(" - Column: " + col))
+  rrfDir.concepts.concepts.foreach(concept => logger.info(" - Concept: " + concept))
 }

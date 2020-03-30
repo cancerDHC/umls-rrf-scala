@@ -23,6 +23,12 @@ class RRFDir(dir: File) {
   /** Get the release information for this release (from release.dat) */
   val releaseInfo: String = Source.fromFile(getFile("release.dat")).mkString
 
-  /** Loads the MRCOLS.RRF files and makes them available. */
+  /** Loads MRCOLS.RRF files and makes them available. */
   val cols: RRFCols = RRFCols.fromRRF(getRRFFile("MRCOLS.RRF"))
+
+  /** Loads MRFILES.RRF files and makes them available. */
+  val files: RRFFiles = RRFFiles.fromRRF(getRRFFile("MRFILES.RRF"), cols)
+
+  /** Loads MRCONSO.RRF files and makes them available. */
+  val concepts: RRFConcepts = RRFConcepts.fromRRF(getRRFFile("MRCONSO.RRF"))
 }
