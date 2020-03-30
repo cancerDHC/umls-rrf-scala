@@ -1,6 +1,9 @@
 # Ignore the META directory containing UMLS RRF files.
 /META
 
+# Ignore the SQLite database we use to do some backend stuff.
+./sqlite.db
+
 # Scala output files
 *.class
 *.log

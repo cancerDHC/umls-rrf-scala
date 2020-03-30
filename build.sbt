@@ -49,6 +49,12 @@ libraryDependencies ++= {
     // Add support for CSV
     "com.github.tototoshi"        %% "scala-csv"              % "1.3.6",
 
+    // Add support for JDBC via Slick
+    "com.typesafe.slick"          %% "slick"                  % "3.3.2",
+
+    // Add support for SQLite via JDBC
+    "org.xerial"                  % "sqlite-jdbc"             % "3.30.1",
+
     // Testing
     "com.lihaoyi"                 %% "utest"                  % "0.7.1" % "test"
   )

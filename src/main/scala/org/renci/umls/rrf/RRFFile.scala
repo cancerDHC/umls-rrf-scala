@@ -9,5 +9,5 @@ import scala.io.Source
   */
 class RRFFile(val file: File, val filename: String) {
   /** A list of all rows in this file. */
-  val rows: Seq[IndexedSeq[String]] = Source.fromFile(file).getLines.map(_.split("\\|").toIndexedSeq).toSeq
+  def rows: Seq[IndexedSeq[String]] = Source.fromFile(file).getLines.map(_.split("\\|").toIndexedSeq).toSeq
 }

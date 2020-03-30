@@ -29,7 +29,7 @@ case class Concept(
   */
 class RRFConcepts(file: File, filename: String = "MRCONSO.RRF") extends RRFFile(file, filename) {
   /** A list of all columns in an RRFConcepts file. */
-  val concepts: Seq[Concept] = {
+  def concepts(): Seq[Concept] = {
     // We'll just hard-code this for now.
     // Eventually, it'd be nice to have this automatically settable from MRFILES.RRF itself, but
     // right now I just don't have the time.

@@ -32,6 +32,11 @@ object CodeMapper extends App with LazyLogging {
       default = Some(new File("./META"))
     )
 
+    val sqliteDb: ScallopOption[File] = opt[File](
+      descr = "SQLite file used as a backend database",
+      default = Some(new File("./sqlite.db"))
+    )
+
     verify()
   }
 
@@ -39,8 +44,9 @@ object CodeMapper extends App with LazyLogging {
   val conf = new Conf(args.toIndexedSeq, logger)
 
   // Read RRF directory.
-  val rrfDir = new RRFDir(conf.rrfDir())
-  logger.info("Loaded directory for release: " + rrfDir.releaseInfo)
+  val rrfDir = new RRFDir(conf.rrfDir(), conf.sqliteDb())
+  logger.info(s"Loaded directory for release: ${rrfDir.releaseInfo}")
+  logger.info(s"Loaded SQLite as database backend: ${rrfDir.sqliteDB}")
 
-  rrfDir.concepts.concepts.foreach(concept => logger.info(" - Concept: " + concept))
+  // rrfDir.concepts.concepts.foreach(concept => logger.info(" - Concept: " + concept))
 }
