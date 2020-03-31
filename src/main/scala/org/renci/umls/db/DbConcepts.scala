@@ -140,11 +140,11 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
       var halfMap = Seq[HalfMap]()
       var count = 0
 
-      val windowSize = (ids.size/20)
+      val windowSize = (ids.size/10) + 1
       ids.sliding(windowSize, windowSize).foreach(idGroup => {
         val indexedIds = idGroup.toIndexedSeq
         val questions = idGroup.map(_ => "?").mkString(", ")
-        val query = conn.prepareStatement(s"SELECT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? AND SCUI IN ($questions)")
+        val query = conn.prepareStatement(s"SELECT DISTINCT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? AND SCUI IN ($questions)")
 
         query.setString(1, source)
         (0 until idGroup.size).foreach(id => {
@@ -210,6 +210,58 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
         })
       })
     }).toSeq
+  }
+
+  // Look up maps by CUIs.
+  // TODO: we might want to be able to call this without source.
+  def getMapsByCUIs(source: String, cuis: Seq[String]): Seq[HalfMap] = {
+    if (cuis.isEmpty) return Seq()
+
+    val conn = db.createConnection()
+    val questions = cuis.map(_ => "?").mkString(", ")
+    val query = conn.prepareStatement(s"SELECT DISTINCT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? AND CUI IN ($questions)")
+    query.setString(1, source)
+    val indexedSeq = cuis.toIndexedSeq
+    (1 to cuis.size).foreach(index => {
+      query.setString(index + 1, indexedSeq(index - 1))
+    })
+
+    var halfMaps = Seq[HalfMap]()
+    val rs = query.executeQuery()
+    while(rs.next()) {
+      halfMaps = HalfMap(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5)
+      ) +: halfMaps
+    }
+    conn.close()
+
+    halfMaps
+  }
+
+  // Get the CUIs for given AUIs.
+  def getCUIsForAUI(auis: Seq[String]): Set[String] = {
+    if (auis.isEmpty) return Set()
+
+    val conn = db.createConnection()
+    val questions = auis.map(_ => "?").mkString(", ")
+    val query = conn.prepareStatement(s"SELECT DISTINCT CUI FROM $tableName WHERE AUI IN ($questions)")
+    val indexedSeq = auis.toIndexedSeq
+    (1 to auis.size).foreach(index => {
+      query.setString(index, indexedSeq(index - 1))
+    })
+
+    var results = Seq[String]()
+    val rs = query.executeQuery()
+    while(rs.next()) {
+      results = rs.getString(1) +: results
+    }
+    conn.close()
+
+    results.toSet
   }
 }
 

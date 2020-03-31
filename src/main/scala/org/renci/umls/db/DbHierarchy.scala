@@ -95,7 +95,7 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String) extends R
 
     val conn = db.createConnection()
     val questions = atomIds.map(_ => "?").mkString(", ")
-    val query = conn.prepareStatement(s"SELECT PAUI FROM $tableName WHERE AUI IN ($questions)")
+    val query = conn.prepareStatement(s"SELECT DISTINCT PAUI FROM $tableName WHERE AUI IN ($questions)")
     val indexedSeq = atomIds.toIndexedSeq
     (1 to atomIds.size).foreach(index => {
       query.setString(index, indexedSeq(index - 1))

@@ -101,11 +101,13 @@ object CodeMapper extends App with LazyLogging {
       val matched = ids.map(id => {
         val maps = mapByFromId.getOrElse(id, Seq())
         val parentAtomIds = rrfDir.hierarchy.getParents(maps.flatMap(_.atomIds))
+        val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
+        val halfMaps = concepts.getHalfMaps(conf.toSource(), parentCUIs.toSeq)
         stream.println(
           s"$id\t${maps.size}"
             + s"\t${maps.map(m => m.toSource + ":" + m.toCode)}"
             + s"\t${maps.map(_.labels).mkString("|")}"
-            + s"\t${parentAtomIds}"
+            + s"\t${halfMaps}"
         )
         maps
       }).filter(_.nonEmpty)
