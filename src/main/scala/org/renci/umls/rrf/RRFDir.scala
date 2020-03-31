@@ -40,6 +40,9 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   /** Loads MRFILES.RRF files and makes them available. */
   val files: RRFFiles = RRFFiles.fromRRF(getRRFFile("MRFILES.RRF"), cols)
 
+  /** Loads MRHIER.RRF files and makes them available. */
+  val hierarchy: RRFHierarchy = RRFHierarchy.fromRRF(getRRFFile("MRHIER.RRF"))
+
   /** Loads MRCONSO.RRF files and makes them available. */
   val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))
 }
