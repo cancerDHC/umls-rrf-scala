@@ -102,6 +102,77 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
     results
   }
 
+  // We use the CUIs to map everything from the fromSource to the toSource.
+  case class HalfMap(cui: String, aui: String, source: String, code:String, label:String)
+
+  def getHalfMaps(source: String, ids: Seq[String]): Seq[HalfMap] = {
+    // Retrieve all the fromIds.
+    val conn = db.createConnection()
+    if (ids.isEmpty) {
+      val query = conn.prepareStatement(s"SELECT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=?")
+      query.setString(1, source)
+      val rs = query.executeQuery()
+
+      logger.info(s"Loading halfmaps for $source")
+      var halfMap = Seq[HalfMap]()
+      var count = 0
+      while(rs.next()) {
+        halfMap = HalfMap(
+          rs.getString(1),
+          rs.getString(2),
+          rs.getString(3),
+          rs.getString(4),
+          rs.getString(5)
+        ) +: halfMap
+        count += 1
+        if (count % 100000 == 0) {
+          logger.info(s"Loaded $count halfmaps.")
+        }
+      }
+
+      conn.close()
+      logger.info(s"${halfMap.size} halfmaps loaded.")
+
+      halfMap
+    } else {
+      logger.info(s"Loading halfmaps for $source with ${ids.size} identifiers.")
+
+      var halfMap = Seq[HalfMap]()
+      var count = 0
+
+      val windowSize = (ids.size/20)
+      ids.sliding(windowSize, windowSize).foreach(idGroup => {
+        val indexedIds = idGroup.toIndexedSeq
+        val questions = idGroup.map(_ => "?").mkString(", ")
+        val query = conn.prepareStatement(s"SELECT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? AND SCUI IN ($questions)")
+
+        query.setString(1, source)
+        (0 until idGroup.size).foreach(id => {
+          query.setString(id + 2, indexedIds(id))
+        })
+
+        val rs = query.executeQuery()
+        while(rs.next()) {
+          halfMap = HalfMap(
+            rs.getString(1),
+            rs.getString(2),
+            rs.getString(3),
+            rs.getString(4),
+            rs.getString(5)
+          ) +: halfMap
+          count += 1
+        }
+
+        logger.info(s"Loaded $count halfmaps.")
+      })
+
+      conn.close()
+      logger.info(s"${halfMap.size} halfmaps loaded.")
+
+      halfMap
+    }
+  }
+
   case class Map(
     fromSource: String,
     fromCode: String,
@@ -111,38 +182,12 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
     atomIds: Set[String],
     labels: Set[String]
   )
-  def getMap(fromSource: String, toSource: String): Seq[Map] = {
-    // Step 1. Actually retrieve the mapping information.
-    val conn = db.createConnection()
-    val query = conn.prepareStatement(s"SELECT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? OR SAB=?;")
-    query.setString(1, fromSource)
-    query.setString(2, toSource)
+  def getMap(fromSource: String, fromIds: Seq[String], toSource: String, toIds: Seq[String]): Seq[Map] = {
+    val fromHalfMaps = getHalfMaps(fromSource, fromIds)
+    val toHalfMaps = getHalfMaps(toSource, toIds)
 
-    val rs = query.executeQuery()
-
-    // We use the CUIs to map everything from the fromSource to the toSource.
-    case class HalfMap(cui: String, aui: String, source: String, code:String, label:String)
-
-    logger.info(s"Loading halfmaps.")
-    var halfMap = Seq[HalfMap]()
-    var count = 0
-    while(rs.next()) {
-      halfMap = HalfMap(
-        rs.getString(1),
-        rs.getString(2),
-        rs.getString(3),
-        rs.getString(4),
-        rs.getString(5)
-      ) +: halfMap
-      count += 1
-      if (count % 100000 == 0) {
-        logger.info(s"Loaded $count halfmaps.")
-      }
-    }
-    conn.close()
-    logger.info(s"${halfMap.size} halfmaps loaded.")
-
-    halfMap.groupBy(_.cui).values.flatMap({ entries =>
+    // Combine the halfmaps so we need to.
+    (fromHalfMaps ++ toHalfMaps).groupBy(_.cui).values.flatMap({ entries =>
       // Everything in entries is the "same" concept according to MRCONSO.
       // So we partition this based on
       val cuis = entries.map(_.cui).toSet

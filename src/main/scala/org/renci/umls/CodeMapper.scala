@@ -1,11 +1,13 @@
 package org.renci.umls
 
-import java.io.File
+import java.io.{File, FileOutputStream, FileWriter, PrintStream}
 
 import org.rogach.scallop._
 import org.rogach.scallop.exceptions._
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 import org.renci.umls.rrf.RRFDir
+
+import scala.io.Source
 
 /**
   * Map terms from one code system to another.
@@ -44,6 +46,14 @@ object CodeMapper extends App with LazyLogging {
       descr = "The source to translate to"
     )
 
+    val idFile: ScallopOption[File] = opt[File](
+      descr = "A file containing identifiers (in a single, newline-delimited column)"
+    )
+
+    val outputFile: ScallopOption[File] = opt[File](
+      descr = "Where to write the output file"
+    )
+
     verify()
   }
 
@@ -70,8 +80,34 @@ object CodeMapper extends App with LazyLogging {
     // We know sourceFrom is set.
     logger.error(s"--source-to is empty, although --source-from is set to '${conf.fromSource()}'")
   } else {
+    // Do we need to filter first?
+
+    // Get ready to write output!
+    val stream = if (conf.outputFile.isEmpty) System.out else new PrintStream(new FileOutputStream(conf.outputFile()))
+
     // Both sourceFrom and sourceTo are set!
-    val map = concepts.getMap(conf.fromSource(), conf.toSource())
-    map.foreach(println(_))
+    if (conf.idFile.isEmpty) {
+      val map = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
+      map.foreach(stream.println(_))
+    } else {
+      val ids = Source.fromFile(conf.idFile()).getLines.map(_.trim).toSeq
+      logger.info(s"Filtering to ${ids.size} IDs from ${conf.idFile()}.")
+
+      val map = concepts.getMap(conf.fromSource(), ids, conf.toSource(), Seq.empty)
+
+      stream.println("id\tcount\tterm\tlabels")
+
+      val mapByFromId = map.groupBy(_.fromCode)
+      val matched = ids.map(id => {
+        val maps = mapByFromId.getOrElse(id, Seq())
+        stream.println(s"$id\t${maps.size}\t${maps.map(m => m.toSource + ":" + m.toCode)}\t${maps.map(_.labels).mkString("|")}")
+        maps
+      }).filter(_.nonEmpty)
+
+      val percentage = (matched.size.toFloat/ids.size) * 100
+      logger.info(f"Matched ${matched.size} IDs out of ${ids.size} ($percentage%.2f%%)")
+    }
+
+    stream.close()
   }
 }
