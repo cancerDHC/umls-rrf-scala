@@ -4,8 +4,7 @@ import java.io.File
 import java.sql.{Connection, DriverManager}
 
 import org.apache.commons.dbcp2.DriverManagerConnectionFactory
-
-import org.renci.umls.db.DbConcepts
+import org.renci.umls.db.{DbConcepts, DbHierarchy}
 
 import scala.io.Source
 
@@ -41,7 +40,7 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   val files: RRFFiles = RRFFiles.fromRRF(getRRFFile("MRFILES.RRF"), cols)
 
   /** Loads MRHIER.RRF files and makes them available. */
-  val hierarchy: RRFHierarchy = RRFHierarchy.fromRRF(getRRFFile("MRHIER.RRF"))
+  val hierarchy: DbHierarchy = DbHierarchy.fromDatabase(sqliteDb, getRRFFile("MRHIER.RRF"))
 
   /** Loads MRCONSO.RRF files and makes them available. */
   val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))

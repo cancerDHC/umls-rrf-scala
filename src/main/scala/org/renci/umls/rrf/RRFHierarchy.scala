@@ -20,7 +20,7 @@ case class HierarchyEntry(
   */
 class RRFHierarchy(file: File, filename: String = "MRHIER.RRF") extends RRFFile(file, filename) {
   /** A list of all columns in an RRFCols file. */
-  lazy val columns: Seq[HierarchyEntry] = {
+  lazy val hierarchies: Seq[HierarchyEntry] = {
     // We'll just hard-code this for now.
     // Eventually, it'd be nice to have this automatically settable from MRCOLS.RRF itself, but
     // right now I just don't have the time.
@@ -36,12 +36,13 @@ class RRFHierarchy(file: File, filename: String = "MRHIER.RRF") extends RRFFile(
       arr(8)
     ))
   }
+  lazy val hierarchiesByAtomId = hierarchies.groupBy(_.AtomId)
 
-  def getParents(atomId: String): Set[String] = columns.filter(_.AtomId == atomId).map(_.ParentAtomId).toSet
-  def getOnlyParent(atomId: String): String = {
-    val set = getParents(atomId)
-    if (set.size < 1) throw new RuntimeException(s"No parents found for atom ID: $atomId")
-    if (set.size > 1) throw new RuntimeException(s"Too many parents found for atom ID: $atomId: $set")
+  def getParents(atomIds: Seq[String]): Set[String] = atomIds.flatMap(hierarchiesByAtomId.getOrElse(_, Seq())).map(_.ParentAtomId).toSet
+  def getOnlyParent(atomIds: Seq[String]): String = {
+    val set = getParents(atomIds)
+    if (set.size < 1) throw new RuntimeException(s"No parents found for atom IDs: $atomIds")
+    if (set.size > 1) throw new RuntimeException(s"Too many parents found for atom IDs: $atomIds: $set")
     set.head
   }
 }
