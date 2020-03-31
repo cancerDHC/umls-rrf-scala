@@ -36,6 +36,14 @@ object CodeMapper extends App with LazyLogging {
       default = Some(new File("./sqlite.db"))
     )
 
+    val fromSource: ScallopOption[String] = opt[String](
+      descr = "The source to translate from"
+    )
+
+    val toSource: ScallopOption[String] = opt[String](
+      descr = "The source to translate to"
+    )
+
     verify()
   }
 
@@ -47,5 +55,23 @@ object CodeMapper extends App with LazyLogging {
   logger.info(s"Loaded directory for release: ${rrfDir.releaseInfo}")
   logger.info(s"Using SQLite backend: ${rrfDir.sqliteDb}")
 
-  // rrfDir.concepts.concepts.foreach(concept => logger.info(" - Concept: " + concept))
+  val concepts = rrfDir.concepts
+  val sources = concepts.getSources
+
+  if (conf.fromSource.isEmpty && conf.toSource.isEmpty) {
+    logger.info("Sources:")
+    sources.map(entry => {
+      logger.info(s" - ${entry._1} (${entry._2} entries)")
+    })
+  } else if (conf.fromSource.isEmpty) {
+    // We know sourceTo is set.
+    logger.error(s"--source-from is empty, although --source-to is set to '${conf.toSource()}'")
+  } else if (conf.toSource.isEmpty) {
+    // We know sourceFrom is set.
+    logger.error(s"--source-to is empty, although --source-from is set to '${conf.fromSource()}'")
+  } else {
+    // Both sourceFrom and sourceTo are set!
+    val map = concepts.getMap(conf.fromSource(), conf.toSource())
+    map.foreach(println(_))
+  }
 }

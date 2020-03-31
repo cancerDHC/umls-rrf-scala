@@ -5,16 +5,20 @@ import java.sql.{Connection, PreparedStatement}
 
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 import org.apache.commons.dbcp2.ConnectionFactory
+import org.renci.umls.rrf
 
 import scala.util.Try
 import org.renci.umls.rrf._
 
+import scala.collection.mutable
 import scala.io.Source
 
 /** A wrapper for RRFConcepts that uses  */
 class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RRFConcepts(file, filename) with LazyLogging {
+  /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRCONSO_" + sha256
 
+  /* Check to see if the MRCONSO_ table seems up to date. If not, load it into memory from the file. */
   val conn1 = db.createConnection()
   val checkCount = conn1.createStatement()
   val results = Try { checkCount.executeQuery(s"SELECT COUNT(*) AS cnt FROM $tableName") }
@@ -73,7 +77,94 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
       }
     }
     insertStmt.executeBatch()
+
+    // Add indexes.
+    regenerate.execute(s"CREATE INDEX INDEX_MRCONSO_SAB ON $tableName (SAB);")
+
     conn.close()
+  }
+
+  // Okay, we're ready to go!
+  def getSources(): Seq[(String, Int)] = {
+    val conn = db.createConnection()
+    val query = conn.createStatement()
+    val rs = query.executeQuery(s"SELECT SAB, COUNT(*) AS count FROM $tableName GROUP BY SAB ORDER BY count DESC;")
+
+    var results = Seq[(String, Int)]()
+    while(rs.next()) {
+      results = results :+ (
+        rs.getString(1),
+        rs.getInt(2)
+      )
+    }
+
+    conn.close()
+    results
+  }
+
+  case class Map(
+    fromSource: String,
+    fromCode: String,
+    toSource: String,
+    toCode: String,
+    conceptIds: Set[String],
+    atomIds: Set[String],
+    labels: Set[String]
+  )
+  def getMap(fromSource: String, toSource: String): Seq[Map] = {
+    // Step 1. Actually retrieve the mapping information.
+    val conn = db.createConnection()
+    val query = conn.prepareStatement(s"SELECT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? OR SAB=?;")
+    query.setString(1, fromSource)
+    query.setString(2, toSource)
+
+    val rs = query.executeQuery()
+
+    // We use the CUIs to map everything from the fromSource to the toSource.
+    case class HalfMap(cui: String, aui: String, source: String, code:String, label:String)
+
+    logger.info(s"Loading halfmaps.")
+    var halfMap = Seq[HalfMap]()
+    var count = 0
+    while(rs.next()) {
+      halfMap = HalfMap(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5)
+      ) +: halfMap
+      count += 1
+      if (count % 100000 == 0) {
+        logger.info(s"Loaded $count halfmaps.")
+      }
+    }
+    conn.close()
+    logger.info(s"${halfMap.size} halfmaps loaded.")
+
+    halfMap.groupBy(_.cui).values.flatMap({ entries =>
+      // Everything in entries is the "same" concept according to MRCONSO.
+      // So we partition this based on
+      val cuis = entries.map(_.cui).toSet
+      val auis = entries.map(_.aui).toSet
+      val labels = entries.map(_.label).toSet
+      val fromCodes = entries.filter(_.source == fromSource).map(_.code).toSet[String]
+      val toCodes = entries.filter(_.source == toSource).map(_.code).toSet[String]
+
+      fromCodes.flatMap(fromCode => {
+        toCodes.map(toCode => {
+          Map(
+            fromSource,
+            fromCode,
+            toSource,
+            toCode,
+            cuis,
+            auis,
+            labels
+          )
+        })
+      })
+    }).toSeq
   }
 }
 
