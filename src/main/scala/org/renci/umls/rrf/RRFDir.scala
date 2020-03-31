@@ -1,13 +1,13 @@
 package org.renci.umls.rrf
 
 import java.io.File
+import java.sql.{Connection, DriverManager}
+
+import org.apache.commons.dbcp2.DriverManagerConnectionFactory
 
 import org.renci.umls.db.DbConcepts
-import slick.jdbc
-import slick.jdbc.SQLiteProfile
 
 import scala.io.Source
-import slick.jdbc.SQLiteProfile.api._
 
 /**
   * Wraps an entire directory of RRF files. This generally contains a release.dat file with release information and the
@@ -29,7 +29,7 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   def getRRFFile(filename: String): RRFFile = new RRFFile(getFile(filename), filename)
 
   /** Set up an SQLite database for us to use. */
-  val sqliteDB: jdbc.SQLiteProfile.backend.DatabaseDef = Database.forURL("jdbc:sqlite:" + sqliteDbFile.getPath)
+  val sqliteDb:DriverManagerConnectionFactory = new DriverManagerConnectionFactory("jdbc:sqlite:" + sqliteDbFile.getPath)
 
   /** Get the release information for this release (from release.dat) */
   val releaseInfo: String = Source.fromFile(getFile("release.dat")).mkString
@@ -41,5 +41,5 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   val files: RRFFiles = RRFFiles.fromRRF(getRRFFile("MRFILES.RRF"), cols)
 
   /** Loads MRCONSO.RRF files and makes them available. */
-  val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDB, getRRFFile("MRCONSO.RRF"))
+  val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))
 }

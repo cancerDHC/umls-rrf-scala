@@ -1,7 +1,6 @@
 package org.renci.umls
 
 import java.io.File
-import java.io.File
 
 import org.rogach.scallop._
 import org.rogach.scallop.exceptions._
@@ -46,7 +45,7 @@ object CodeMapper extends App with LazyLogging {
   // Read RRF directory.
   val rrfDir = new RRFDir(conf.rrfDir(), conf.sqliteDb())
   logger.info(s"Loaded directory for release: ${rrfDir.releaseInfo}")
-  logger.info(s"Loaded SQLite as database backend: ${rrfDir.sqliteDB}")
+  logger.info(s"Using SQLite backend: ${rrfDir.sqliteDb}")
 
   // rrfDir.concepts.concepts.foreach(concept => logger.info(" - Concept: " + concept))
 }

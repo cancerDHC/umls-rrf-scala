@@ -49,13 +49,16 @@ libraryDependencies ++= {
     // Add support for CSV
     "com.github.tototoshi"        %% "scala-csv"              % "1.3.6",
 
-    // Add support for JDBC via Slick
-    "com.typesafe.slick"          %% "slick"                  % "3.3.2",
+    // We need JDBC connection pooling so we can start new connections as needed.
+    "org.apache.commons"          % "commons-dbcp2"           % "2.7.0",
 
-    // Add support for SQLite via JDBC
+  // Add support for SQLite via JDBC
     "org.xerial"                  % "sqlite-jdbc"             % "3.30.1",
 
-    // Testing
+    // Add support for calculating hashes for files.
+    "commons-codec"               % "commons-codec"           % "1.14",
+
+  // Testing
     "com.lihaoyi"                 %% "utest"                  % "0.7.1" % "test"
   )
 }
