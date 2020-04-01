@@ -9,12 +9,19 @@ import org.renci.umls.rrf
 
 import scala.util.Try
 import org.renci.umls.rrf._
+import scalacache._
+import scalacache.caffeine._
+import scalacache.memoization._
+import scalacache.modes.sync._
 
+import scala.concurrent.duration._
 import scala.collection.mutable
 import scala.io.Source
 
 /** A wrapper for RRFConcepts that uses  */
 class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RRFConcepts(file, filename) with LazyLogging {
+  implicit val halfMapCache: Cache[Seq[HalfMap]] = CaffeineCache[Seq[HalfMap]]
+
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRCONSO_" + sha256
 
@@ -105,7 +112,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
   // We use the CUIs to map everything from the fromSource to the toSource.
   case class HalfMap(cui: String, aui: String, source: String, code:String, label:String)
 
-  def getHalfMaps(source: String, ids: Seq[String]): Seq[HalfMap] = {
+  def getHalfMapsForSCUIs(source: String, ids: Seq[String]): Seq[HalfMap] = memoizeSync(Some(2.seconds)) {
     // Retrieve all the fromIds.
     val conn = db.createConnection()
     if (ids.isEmpty) {
@@ -135,7 +142,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
 
       halfMap
     } else {
-      logger.info(s"Loading halfmaps for $source with ${ids.size} identifiers.")
+      logger.info(s"Loading halfmaps for $source with identifiers: $ids.")
 
       var halfMap = Seq[HalfMap]()
       var count = 0
@@ -173,7 +180,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
     }
   }
 
-  case class Map(
+  case class Mapping(
     fromSource: String,
     fromCode: String,
     toSource: String,
@@ -182,9 +189,9 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
     atomIds: Set[String],
     labels: Set[String]
   )
-  def getMap(fromSource: String, fromIds: Seq[String], toSource: String, toIds: Seq[String]): Seq[Map] = {
-    val fromHalfMaps = getHalfMaps(fromSource, fromIds)
-    val toHalfMaps = getHalfMaps(toSource, toIds)
+  def getMap(fromSource: String, fromIds: Seq[String], toSource: String, toIds: Seq[String]): Seq[Mapping] = {
+    val fromHalfMaps = getHalfMapsForSCUIs(fromSource, fromIds)
+    val toHalfMaps = getHalfMapsForSCUIs(toSource, toIds)
 
     // Combine the halfmaps so we need to.
     (fromHalfMaps ++ toHalfMaps).groupBy(_.cui).values.flatMap({ entries =>
@@ -198,7 +205,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
 
       fromCodes.flatMap(fromCode => {
         toCodes.map(toCode => {
-          Map(
+          Mapping(
             fromSource,
             fromCode,
             toSource,
@@ -214,13 +221,13 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
 
   // Look up maps by CUIs.
   // TODO: we might want to be able to call this without source.
-  def getMapsByCUIs(source: String, cuis: Seq[String]): Seq[HalfMap] = {
+  def getMapsByCUIs(cuis: Seq[String], toSource: String): Seq[HalfMap] = memoizeSync(Some(2.seconds)) {
     if (cuis.isEmpty) return Seq()
 
     val conn = db.createConnection()
     val questions = cuis.map(_ => "?").mkString(", ")
     val query = conn.prepareStatement(s"SELECT DISTINCT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? AND CUI IN ($questions)")
-    query.setString(1, source)
+    query.setString(1, toSource)
     val indexedSeq = cuis.toIndexedSeq
     (1 to cuis.size).foreach(index => {
       query.setString(index + 1, indexedSeq(index - 1))
@@ -262,6 +269,49 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
     conn.close()
 
     results.toSet
+  }
+
+  def getAUIsForCUIs(cuis: Seq[String]): Seq[String] = {
+    if (cuis.isEmpty) return Seq.empty
+
+    val conn = db.createConnection()
+    val questions = cuis.map(_ => "?").mkString(", ")
+    val query = conn.prepareStatement(s"SELECT DISTINCT AUI FROM $tableName WHERE CUI IN ($questions)")
+    val indexedSeq = cuis.toIndexedSeq
+    (1 to cuis.size).foreach(index => {
+      query.setString(index, indexedSeq(index - 1))
+    })
+
+    var results = Seq[String]()
+    val rs = query.executeQuery()
+    while(rs.next()) {
+      results = rs.getString(1) +: results
+    }
+    conn.close()
+
+    results
+  }
+
+  def getCUIsForSCUIs(source: String, ids: Seq[String]): Map[String, Seq[String]] = {
+    if (ids.isEmpty) return Map.empty
+
+    val conn = db.createConnection()
+    val questions = ids.map(_ => "?").mkString(", ")
+    val query = conn.prepareStatement(s"SELECT DISTINCT SCUI, CUI FROM $tableName WHERE SAB=? AND SCUI IN ($questions)")
+    query.setString(1, source)
+    val indexedSeq = ids.toIndexedSeq
+    (1 to ids.size).foreach(index => {
+      query.setString(index + 1, indexedSeq(index - 1))
+    })
+
+    var results = Seq[(String, String)]()
+    val rs = query.executeQuery()
+    while(rs.next()) {
+      results = (rs.getString(1), rs.getString(2)) +: results
+    }
+    conn.close()
+
+    results.groupMap(_._1)(_._2)
   }
 }
 

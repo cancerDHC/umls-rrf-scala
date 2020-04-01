@@ -1,7 +1,6 @@
 package org.renci.umls.rrf
 
 import java.io.File
-import java.sql.{Connection, DriverManager}
 
 import org.apache.commons.dbcp2.DriverManagerConnectionFactory
 import org.renci.umls.db.{DbConcepts, DbHierarchy}

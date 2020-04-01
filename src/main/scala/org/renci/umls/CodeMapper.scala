@@ -94,26 +94,57 @@ object CodeMapper extends App with LazyLogging {
       logger.info(s"Filtering to ${ids.size} IDs from ${conf.idFile()}.")
 
       val map = concepts.getMap(conf.fromSource(), ids, conf.toSource(), Seq.empty)
+      val allTermCuis = concepts.getCUIsForSCUIs(conf.fromSource(), ids)
 
       stream.println("id\tcount\tterm\tlabels\tparentTerms\tparentLabels")
 
+      var count = 0
       val mapByFromId = map.groupBy(_.fromCode)
       val matched = ids.map(id => {
         val maps = mapByFromId.getOrElse(id, Seq())
-        val parentAtomIds = rrfDir.hierarchy.getParents(maps.flatMap(_.atomIds))
-        val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
-        val halfMaps = concepts.getHalfMaps(conf.toSource(), parentCUIs.toSeq)
+        val (parentStr, halfMaps) = if (maps.nonEmpty) ("", Map.empty) else {
+          val termCuis = allTermCuis.getOrElse(id, Seq.empty)
+          // logger.info(s"Checking $termCuis for parent AUI information.")
+
+          val termAtomIds = concepts.getAUIsForCUIs(termCuis)
+          val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds)
+          val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
+          val halfMaps = if(parentCUIs.isEmpty) Seq.empty else concepts.getMapsByCUIs(parentCUIs.toSeq, conf.toSource())
+
+          val cuis = halfMaps.map(_.cui).toSet
+          val sources = halfMaps.map(_.source).toSet
+          val codes = halfMaps.map(_.code).toSet
+          val labels = halfMaps.map(_.label).toSet
+
+          (s"\t$cuis\t$sources\t$codes\t$labels", halfMaps)
+        }
+
         stream.println(
-          s"$id\t${maps.size}"
+          s"$id\t${maps.size}\t${halfMaps.size}\t"
             + s"\t${maps.map(m => m.toSource + ":" + m.toCode)}"
             + s"\t${maps.map(_.labels).mkString("|")}"
-            + s"\t${halfMaps}"
+            + s"$parentStr"
         )
-        maps
-      }).filter(_.nonEmpty)
 
-      val percentage = (matched.size.toFloat/ids.size) * 100
-      logger.info(f"Matched ${matched.size} IDs out of ${ids.size} ($percentage%.2f%%)")
+        count += 1
+        if (count % 100 == 0) {
+          val percentage = count.toFloat/ids.size * 100
+          logger.info(f"Processed $count out of ${ids.size} IDs ($percentage%.2f%%)")
+        }
+
+        (maps, halfMaps)
+      })
+
+      val matchedTerm = matched.filter(_._1.nonEmpty).flatMap(_._1)
+      val matchedParent = matched.filter(_._2.nonEmpty).flatMap(_._2)
+      val matchedTotal = matchedTerm.size + matchedParent.size
+
+      val percentageTerm = (matchedTerm.size.toFloat/ids.size) * 100
+      val percentageParent = (matchedParent.size.toFloat/ids.size) * 100
+      val percentageTotal = (matchedTotal.toFloat/ids.size) * 100
+      logger.info(f"Matched ${matchedTerm.size} IDs out of ${ids.size} ($percentageTerm%.2f%%)")
+      logger.info(f"Matched a further ${matchedParent.size} IDs via the parent term ($percentageParent%.2f%%)")
+      logger.info(f"Total coverage: $matchedTotal IDs out of ${ids.size} ($percentageTotal%.2f%%)")
     }
 
     stream.close()

@@ -58,6 +58,11 @@ libraryDependencies ++= {
     // Add support for calculating hashes for files.
     "commons-codec"               % "commons-codec"           % "1.14",
 
+    // Add methods for storing information in-memory.
+    "com.github.cb372"            %% "scalacache-core"        % "0.28.0",
+    "com.github.cb372"            %% "scalacache-caffeine"    % "0.28.0",
+    "com.github.ben-manes.caffeine" % "caffeine"              % "2.8.1",
+
   // Testing
     "com.lihaoyi"                 %% "utest"                  % "0.7.1" % "test"
   )
