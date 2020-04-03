@@ -94,7 +94,7 @@ object CodeMapper extends App with LazyLogging {
       logger.info(s"Filtering to ${ids.size} IDs from ${conf.idFile()}.")
 
       val map = concepts.getMap(conf.fromSource(), ids, conf.toSource(), Seq.empty)
-      val allTermCuis = concepts.getCUIsForSCUIs(conf.fromSource(), ids)
+      val allTermCuis = concepts.getCUIsForCodes(conf.fromSource(), ids)
 
       stream.println("id\tcount\tterm\tlabels\tparentTerms\tparentLabels")
 

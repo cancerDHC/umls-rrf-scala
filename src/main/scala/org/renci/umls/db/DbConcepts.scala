@@ -112,11 +112,11 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
   // We use the CUIs to map everything from the fromSource to the toSource.
   case class HalfMap(cui: String, aui: String, source: String, code:String, label:String)
 
-  def getHalfMapsForSCUIs(source: String, ids: Seq[String]): Seq[HalfMap] = memoizeSync(Some(2.seconds)) {
+  def getHalfMapsForCodes(source: String, ids: Seq[String]): Seq[HalfMap] = memoizeSync(Some(2.seconds)) {
     // Retrieve all the fromIds.
     val conn = db.createConnection()
     if (ids.isEmpty) {
-      val query = conn.prepareStatement(s"SELECT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=?")
+      val query = conn.prepareStatement(s"SELECT CUI, AUI, SAB, CODE, STR FROM $tableName WHERE SAB=?")
       query.setString(1, source)
       val rs = query.executeQuery()
 
@@ -151,7 +151,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
       ids.sliding(windowSize, windowSize).foreach(idGroup => {
         val indexedIds = idGroup.toIndexedSeq
         val questions = idGroup.map(_ => "?").mkString(", ")
-        val query = conn.prepareStatement(s"SELECT DISTINCT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? AND SCUI IN ($questions)")
+        val query = conn.prepareStatement(s"SELECT DISTINCT CUI, AUI, SAB, CODE, STR FROM $tableName WHERE SAB=? AND CODE IN ($questions)")
 
         query.setString(1, source)
         (0 until idGroup.size).foreach(id => {
@@ -190,8 +190,8 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
     labels: Set[String]
   )
   def getMap(fromSource: String, fromIds: Seq[String], toSource: String, toIds: Seq[String]): Seq[Mapping] = {
-    val fromHalfMaps = getHalfMapsForSCUIs(fromSource, fromIds)
-    val toHalfMaps = getHalfMapsForSCUIs(toSource, toIds)
+    val fromHalfMaps = getHalfMapsForCodes(fromSource, fromIds)
+    val toHalfMaps = getHalfMapsForCodes(toSource, toIds)
 
     // Combine the halfmaps so we need to.
     (fromHalfMaps ++ toHalfMaps).groupBy(_.cui).values.flatMap({ entries =>
@@ -226,7 +226,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
 
     val conn = db.createConnection()
     val questions = cuis.map(_ => "?").mkString(", ")
-    val query = conn.prepareStatement(s"SELECT DISTINCT CUI, AUI, SAB, SCUI, STR FROM $tableName WHERE SAB=? AND CUI IN ($questions)")
+    val query = conn.prepareStatement(s"SELECT DISTINCT CUI, AUI, SAB, CODE, STR FROM $tableName WHERE SAB=? AND CUI IN ($questions)")
     query.setString(1, toSource)
     val indexedSeq = cuis.toIndexedSeq
     (1 to cuis.size).foreach(index => {
@@ -292,12 +292,12 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
     results
   }
 
-  def getCUIsForSCUIs(source: String, ids: Seq[String]): Map[String, Seq[String]] = {
+  def getCUIsForCodes(source: String, ids: Seq[String]): Map[String, Seq[String]] = {
     if (ids.isEmpty) return Map.empty
 
     val conn = db.createConnection()
     val questions = ids.map(_ => "?").mkString(", ")
-    val query = conn.prepareStatement(s"SELECT DISTINCT SCUI, CUI FROM $tableName WHERE SAB=? AND SCUI IN ($questions)")
+    val query = conn.prepareStatement(s"SELECT DISTINCT CODE, CUI FROM $tableName WHERE SAB=? AND CODE IN ($questions)")
     query.setString(1, source)
     val indexedSeq = ids.toIndexedSeq
     (1 to ids.size).foreach(index => {
