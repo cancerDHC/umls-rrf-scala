@@ -87,8 +87,16 @@ object CodeMapper extends App with LazyLogging {
 
     // Both sourceFrom and sourceTo are set!
     if (conf.idFile.isEmpty) {
-      val map = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
-      map.foreach(stream.println(_))
+      val maps = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
+      stream.println("fromSource\tfromCode\ttoSource\ttoCode\tnciMTConceptIds\tlabels")
+      maps.foreach(map => {
+        stream.println(
+          s"${map.fromSource}\t${map.fromCode}\t" +
+          s"${map.toSource}\t${map.toCode}\t" +
+          s"${map.conceptIds.mkString(", ")}\t" +
+          s"${map.labels}"
+        )
+      })
     } else {
       val ids = Source.fromFile(conf.idFile()).getLines.map(_.trim).toSeq
       logger.info(s"Filtering to ${ids.size} IDs from ${conf.idFile()}.")
