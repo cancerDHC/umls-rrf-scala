@@ -105,13 +105,13 @@ object CodeMapper extends App with LazyLogging {
       val map = concepts.getMap(conf.fromSource(), ids, conf.toSource(), Seq.empty)
       val allTermCuis = concepts.getCUIsForCodes(conf.fromSource(), ids)
 
-      stream.println("fromSource\tid\tlabels\tcountDirect\tcountViaParent\ttoIds\ttoLabels\tncimtIds\tparentSource\tparentIds\tparentLabels")
+      stream.println("fromSource\tid\tcuis\tlabels\tcountDirect\tcountViaParent\ttoIds\ttoLabels\tparentCuis\tparentSource\tparentIds\tparentLabels")
 
       var count = 0
       val mapByFromId = map.groupBy(_.fromCode)
       val matched = ids.map(id => {
         val maps = mapByFromId.getOrElse(id, Seq())
-        val (parentStr, halfMaps) = if (maps.nonEmpty) ("", Seq.empty) else {
+        val (parentStr, parentHalfMaps) = if (maps.nonEmpty) ("", Seq.empty) else {
           val termCuis = allTermCuis.getOrElse(id, Seq.empty)
           // logger.info(s"Checking $termCuis for parent AUI information.")
 
@@ -128,8 +128,10 @@ object CodeMapper extends App with LazyLogging {
           (s"\t${cuis.mkString("|")}\t${sources.mkString("|")}\t${codes.mkString("|")}\t${labels.mkString("|")}", halfMaps)
         }
 
+        val halfMaps = halfMapByCode.getOrElse(id, Seq())
+
         stream.println(
-          s"${conf.fromSource()}\t$id\t${halfMapByCode.getOrElse(id, Seq()).map(_.label).mkString("|")}\t${maps.size}\t${halfMaps.size}"
+          s"${conf.fromSource()}\t$id\t${halfMaps.map(_.cui).toSet.mkString("|")}\t${halfMaps.map(_.label).toSet.mkString("|")}\t${maps.size}\t${parentHalfMaps.size}"
             + s"\t${maps.map(m => m.toSource + ":" + m.toCode).mkString("|")}"
             + s"\t${maps.map(_.labels.mkString(";")).mkString("|")}"
             + s"$parentStr"
@@ -141,7 +143,7 @@ object CodeMapper extends App with LazyLogging {
           logger.info(f"Processed $count out of ${ids.size} IDs ($percentage%.2f%%)")
         }
 
-        (maps, halfMaps)
+        (maps, parentHalfMaps)
       })
 
       val matchedTerm = matched.filter(_._1.nonEmpty).flatMap(_._1)
