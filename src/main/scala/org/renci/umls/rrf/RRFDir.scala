@@ -27,20 +27,20 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   def getRRFFile(filename: String): RRFFile = new RRFFile(getFile(filename), filename)
 
   /** Set up an SQLite database for us to use. */
-  val sqliteDb:DriverManagerConnectionFactory = new DriverManagerConnectionFactory("jdbc:sqlite:" + sqliteDbFile.getPath)
+  lazy val sqliteDb:DriverManagerConnectionFactory = new DriverManagerConnectionFactory("jdbc:sqlite:" + sqliteDbFile.getPath)
 
   /** Get the release information for this release (from release.dat) */
-  val releaseInfo: String = Source.fromFile(getFile("release.dat")).mkString
+  lazy val releaseInfo: String = Source.fromFile(getFile("release.dat")).mkString
 
   /** Loads MRCOLS.RRF files and makes them available. */
-  val cols: RRFCols = RRFCols.fromRRF(getRRFFile("MRCOLS.RRF"))
+  lazy val cols: RRFCols = RRFCols.fromRRF(getRRFFile("MRCOLS.RRF"))
 
   /** Loads MRFILES.RRF files and makes them available. */
-  val files: RRFFiles = RRFFiles.fromRRF(getRRFFile("MRFILES.RRF"), cols)
+  lazy val files: RRFFiles = RRFFiles.fromRRF(getRRFFile("MRFILES.RRF"), cols)
 
   /** Loads MRHIER.RRF files and makes them available. */
-  val hierarchy: DbHierarchy = DbHierarchy.fromDatabase(sqliteDb, getRRFFile("MRHIER.RRF"))
+  lazy val hierarchy: DbHierarchy = DbHierarchy.fromDatabase(sqliteDb, getRRFFile("MRHIER.RRF"))
 
   /** Loads MRCONSO.RRF files and makes them available. */
-  val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))
+  lazy val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))
 }
