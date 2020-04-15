@@ -316,28 +316,6 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
   }
 }
 
-/** Represents a single column entry. */
-case class Concept(
-                    ConceptID: String,            // CUI
-                    Lang: String,                 // LAT
-                    TermStatus: String,           // TS
-                    TermID: String,               // LUI
-                    StringType: String,           // STT
-                    StringID: String,             // SUI
-                    IsPreferred: Boolean,         // ISPREF
-                    AtomID: String,               // AUI
-                    SourceAtomID: String,         // SAUI
-                    SourceConceptID: String,      // SCUI
-                    SourceDescriptorID: String,   // SDUI
-                    Source: String,               // SAB
-                    TermType: String,             // TTY
-                    SourceEntryID: String,        // CODE
-                    EntryString: String,          // STR
-                    SourceRestriction: String,    // SRL
-                    SuppressibleFlag: String,     // SUPPRESS
-                    ContentViewFlag: String       // CVF
-                  )
-
 object DbConcepts {
   /** Wrap an RRF file using a database to cache results. */
   def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile) = new DbConcepts(db, rrfFile.file, rrfFile.filename)
