@@ -94,7 +94,7 @@ object CodeMapper extends App with LazyLogging {
           s"${map.fromSource}\t${map.fromCode}\t" +
           s"${map.toSource}\t${map.toCode}\t" +
           s"${map.conceptIds.mkString(", ")}\t" +
-          s"${map.labels}"
+          s"${map.labels.mkString("|")}"
         )
       })
     } else {
