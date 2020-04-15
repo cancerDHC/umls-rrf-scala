@@ -1,6 +1,6 @@
 package org.renci.umls
 
-import java.io.{File, FileOutputStream, FileWriter, PrintStream}
+import java.io.{File, FileOutputStream, PrintStream}
 
 import org.rogach.scallop._
 import org.rogach.scallop.exceptions._
