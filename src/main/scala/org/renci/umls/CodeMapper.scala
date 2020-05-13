@@ -38,21 +38,14 @@ object CodeMapper extends App with LazyLogging {
       default = Some(new File("./sqlite.db"))
     )
 
-    val fromSource: ScallopOption[String] = opt[String](
-      descr = "The source to translate from"
-    )
+    val fromSource: ScallopOption[String] = opt[String](descr = "The source to translate from")
 
-    val toSource: ScallopOption[String] = opt[String](
-      descr = "The source to translate to"
-    )
+    val toSource: ScallopOption[String] = opt[String](descr = "The source to translate to")
 
-    val idFile: ScallopOption[File] = opt[File](
-      descr = "A file containing identifiers (in a single, newline-delimited column)"
-    )
+    val idFile: ScallopOption[File] =
+      opt[File](descr = "A file containing identifiers (in a single, newline-delimited column)")
 
-    val outputFile: ScallopOption[File] = opt[File](
-      descr = "Where to write the output file"
-    )
+    val outputFile: ScallopOption[File] = opt[File](descr = "Where to write the output file")
 
     verify()
   }
@@ -83,7 +76,9 @@ object CodeMapper extends App with LazyLogging {
     // Do we need to filter first?
 
     // Get ready to write output!
-    val stream = if (conf.outputFile.isEmpty) System.out else new PrintStream(new FileOutputStream(conf.outputFile()))
+    val stream =
+      if (conf.outputFile.isEmpty) System.out
+      else new PrintStream(new FileOutputStream(conf.outputFile()))
 
     // Both sourceFrom and sourceTo are set!
     if (conf.idFile.isEmpty) {
@@ -92,9 +87,9 @@ object CodeMapper extends App with LazyLogging {
       maps.foreach(map => {
         stream.println(
           s"${map.fromSource}\t${map.fromCode}\t" +
-          s"${map.toSource}\t${map.toCode}\t" +
-          s"${map.conceptIds.mkString(", ")}\t" +
-          s"${map.labels.mkString("|")}"
+            s"${map.toSource}\t${map.toCode}\t" +
+            s"${map.conceptIds.mkString(", ")}\t" +
+            s"${map.labels.mkString("|")}"
         )
       })
     } else {
@@ -105,33 +100,43 @@ object CodeMapper extends App with LazyLogging {
       val map = concepts.getMap(conf.fromSource(), ids, conf.toSource(), Seq.empty)
       val allTermCuis = concepts.getCUIsForCodes(conf.fromSource(), ids)
 
-      stream.println("fromSource\tid\tcuis\tlabels\tcountDirect\tcountViaParent\ttoIds\ttoLabels\tparentCuis\tparentSource\tparentIds\tparentLabels")
+      stream.println(
+        "fromSource\tid\tcuis\tlabels\tcountDirect\tcountViaParent\ttoIds\ttoLabels\tparentCuis\tparentSource\tparentIds\tparentLabels"
+      )
 
       var count = 0
       val mapByFromId = map.groupBy(_.fromCode)
       val matched = ids.map(id => {
         val maps = mapByFromId.getOrElse(id, Seq())
-        val (parentStr, parentHalfMaps) = if (maps.nonEmpty) ("", Seq.empty) else {
-          val termCuis = allTermCuis.getOrElse(id, Seq.empty)
-          // logger.info(s"Checking $termCuis for parent AUI information.")
+        val (parentStr, parentHalfMaps) =
+          if (maps.nonEmpty) ("", Seq.empty)
+          else {
+            val termCuis = allTermCuis.getOrElse(id, Seq.empty)
+            // logger.info(s"Checking $termCuis for parent AUI information.")
 
-          val termAtomIds = concepts.getAUIsForCUIs(termCuis)
-          val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds)
-          val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
-          val halfMaps = if(parentCUIs.isEmpty) Seq.empty else concepts.getMapsByCUIs(parentCUIs.toSeq, conf.toSource())
+            val termAtomIds = concepts.getAUIsForCUIs(termCuis)
+            val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds)
+            val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
+            val halfMaps =
+              if (parentCUIs.isEmpty) Seq.empty
+              else concepts.getMapsByCUIs(parentCUIs.toSeq, conf.toSource())
 
-          val cuis = halfMaps.map(_.cui).toSet
-          val sources = halfMaps.map(_.source).toSet
-          val codes = halfMaps.map(_.code).toSet
-          val labels = halfMaps.map(_.label).toSet
+            val cuis = halfMaps.map(_.cui).toSet
+            val sources = halfMaps.map(_.source).toSet
+            val codes = halfMaps.map(_.code).toSet
+            val labels = halfMaps.map(_.label).toSet
 
-          (s"\t${cuis.mkString("|")}\t${sources.mkString("|")}\t${codes.mkString("|")}\t${labels.mkString("|")}", halfMaps)
-        }
+            (s"\t${cuis.mkString("|")}\t${sources.mkString("|")}\t${codes.mkString("|")}\t${labels
+              .mkString("|")}", halfMaps)
+          }
 
         val halfMaps = halfMapByCode.getOrElse(id, Seq())
 
         stream.println(
-          s"${conf.fromSource()}\t$id\t${halfMaps.map(_.cui).toSet.mkString("|")}\t${halfMaps.map(_.label).toSet.mkString("|")}\t${maps.size}\t${parentHalfMaps.size}"
+          s"${conf.fromSource()}\t$id\t${halfMaps.map(_.cui).toSet.mkString("|")}\t${halfMaps
+            .map(_.label)
+            .toSet
+            .mkString("|")}\t${maps.size}\t${parentHalfMaps.size}"
             + s"\t${maps.map(m => m.toSource + ":" + m.toCode).mkString("|")}"
             + s"\t${maps.map(_.labels.mkString(";")).mkString("|")}"
             + s"$parentStr"
@@ -139,7 +144,7 @@ object CodeMapper extends App with LazyLogging {
 
         count += 1
         if (count % 100 == 0) {
-          val percentage = count.toFloat/ids.size * 100
+          val percentage = count.toFloat / ids.size * 100
           logger.info(f"Processed $count out of ${ids.size} IDs ($percentage%.2f%%)")
         }
 
@@ -150,12 +155,16 @@ object CodeMapper extends App with LazyLogging {
       val matchedParent = matched.filter(_._2.nonEmpty).flatMap(_._2)
       val matchedTotal = matched.filter(m => m._1.nonEmpty || m._2.nonEmpty)
 
-      val percentageTerm = (matchedTerm.size.toFloat/ids.size) * 100
-      val percentageParent = (matchedParent.size.toFloat/ids.size) * 100
-      val percentageTotal = (matchedTotal.size.toFloat/ids.size) * 100
+      val percentageTerm = (matchedTerm.size.toFloat / ids.size) * 100
+      val percentageParent = (matchedParent.size.toFloat / ids.size) * 100
+      val percentageTotal = (matchedTotal.size.toFloat / ids.size) * 100
       logger.info(f"Matched ${matchedTerm.size} IDs out of ${ids.size} ($percentageTerm%.2f%%)")
-      logger.info(f"Matched a further ${matchedParent.size} IDs via the parent term ($percentageParent%.2f%%)")
-      logger.info(f"Total coverage: ${matchedTotal.size} IDs out of ${ids.size} ($percentageTotal%.2f%%)")
+      logger.info(
+        f"Matched a further ${matchedParent.size} IDs via the parent term ($percentageParent%.2f%%)"
+      )
+      logger.info(
+        f"Total coverage: ${matchedTotal.size} IDs out of ${ids.size} ($percentageTotal%.2f%%)"
+      )
     }
 
     stream.close()

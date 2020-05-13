@@ -15,19 +15,21 @@ import scala.io.Source
 
 /** Represents a single hierarchy entry. */
 case class HierarchyEntry(
-                           ConceptId: String,                  // CUI
-                           AtomId: String,                     // AUI
-                           ContextNumber: String,              // CXN
-                           ParentAtomId: String,               // PAUI
-                           Source: String,                     // SAB
-                           Relation: String,                   // RELA
-                           PathToRoot: String,                 // PTR
-                           HierarchyCode: String,              // HCD
-                           ContentViewFlag: String             // CVF
-                         )
+  ConceptId: String, // CUI
+  AtomId: String, // AUI
+  ContextNumber: String, // CXN
+  ParentAtomId: String, // PAUI
+  Source: String, // SAB
+  Relation: String, // RELA
+  PathToRoot: String, // PTR
+  HierarchyCode: String, // HCD
+  ContentViewFlag: String // CVF
+)
 
 /** A wrapper for RRFHierarchy that uses SQLite */
-class DbHierarchy(db: ConnectionFactory, file: File, filename: String) extends RRFHierarchy(file, filename) with LazyLogging {
+class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
+    extends RRFHierarchy(file, filename)
+    with LazyLogging {
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRHIER_" + sha256
 
@@ -60,7 +62,7 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String) extends R
 
     val insertStmt = conn.prepareStatement(
       s"INSERT INTO $tableName (CUI, AUI, CXN, PAUI, SAB, RELA, PTR, HCD, CVF) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
 
     var count = 0
@@ -74,7 +76,7 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String) extends R
 
       count += 1
       if (count % 100000 == 0) {
-        val percentage = count.toFloat/rowCount*100
+        val percentage = count.toFloat / rowCount * 100
         logger.info(f"Batched $count rows out of $rowCount ($percentage%.2f%%), executing.")
         insertStmt.executeBatch()
         insertStmt.clearBatch()
@@ -95,7 +97,8 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String) extends R
 
     val conn = db.createConnection()
     val questions = atomIds.map(_ => "?").mkString(", ")
-    val query = conn.prepareStatement(s"SELECT DISTINCT PAUI FROM $tableName WHERE AUI IN ($questions)")
+    val query =
+      conn.prepareStatement(s"SELECT DISTINCT PAUI FROM $tableName WHERE AUI IN ($questions)")
     val indexedSeq = atomIds.toIndexedSeq
     (1 to atomIds.size).foreach(index => {
       query.setString(index, indexedSeq(index - 1))
@@ -103,7 +106,7 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String) extends R
 
     var results = Seq[String]()
     val rs = query.executeQuery()
-    while(rs.next()) {
+    while (rs.next()) {
       results = rs.getString(1) +: results
     }
     conn.close()
@@ -114,5 +117,6 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String) extends R
 
 object DbHierarchy {
   /** Wrap an RRF file using a database to cache results. */
-  def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile) = new DbHierarchy(db, rrfFile.file, rrfFile.filename)
+  def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile) =
+    new DbHierarchy(db, rrfFile.file, rrfFile.filename)
 }

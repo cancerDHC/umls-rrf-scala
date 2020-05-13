@@ -4,15 +4,15 @@ import java.io.File
 
 /** Represents a single hierarchy entry. */
 case class HierarchyEntry(
-  ConceptId: String,                  // CUI
-  AtomId: String,                     // AUI
-  ContextNumber: String,              // CXN
-  ParentAtomId: String,               // PAUI
-  Source: String,                     // SAB
-  Relation: String,                   // RELA
-  PathToRoot: String,                 // PTR
-  HierarchyCode: String,              // HCD
-  ContentViewFlag: String             // CVF
+  ConceptId: String, // CUI
+  AtomId: String, // AUI
+  ContextNumber: String, // CXN
+  ParentAtomId: String, // PAUI
+  Source: String, // SAB
+  Relation: String, // RELA
+  PathToRoot: String, // PTR
+  HierarchyCode: String, // HCD
+  ContentViewFlag: String // CVF
 )
 
 /**
@@ -24,25 +24,19 @@ class RRFHierarchy(file: File, filename: String = "MRHIER.RRF") extends RRFFile(
     // We'll just hard-code this for now.
     // Eventually, it'd be nice to have this automatically settable from MRCOLS.RRF itself, but
     // right now I just don't have the time.
-    rows.map(arr => HierarchyEntry(
-      arr(0),
-      arr(1),
-      arr(2),
-      arr(3),
-      arr(4),
-      arr(5),
-      arr(6),
-      arr(7),
-      arr(8)
-    ))
+    rows.map(
+      arr => HierarchyEntry(arr(0), arr(1), arr(2), arr(3), arr(4), arr(5), arr(6), arr(7), arr(8))
+    )
   }
   lazy val hierarchiesByAtomId = hierarchies.groupBy(_.AtomId)
 
-  def getParents(atomIds: Seq[String]): Set[String] = atomIds.flatMap(hierarchiesByAtomId.getOrElse(_, Seq())).map(_.ParentAtomId).toSet
+  def getParents(atomIds: Seq[String]): Set[String] =
+    atomIds.flatMap(hierarchiesByAtomId.getOrElse(_, Seq())).map(_.ParentAtomId).toSet
   def getOnlyParent(atomIds: Seq[String]): String = {
     val set = getParents(atomIds)
     if (set.size < 1) throw new RuntimeException(s"No parents found for atom IDs: $atomIds")
-    if (set.size > 1) throw new RuntimeException(s"Too many parents found for atom IDs: $atomIds: $set")
+    if (set.size > 1)
+      throw new RuntimeException(s"Too many parents found for atom IDs: $atomIds: $set")
     set.head
   }
 }

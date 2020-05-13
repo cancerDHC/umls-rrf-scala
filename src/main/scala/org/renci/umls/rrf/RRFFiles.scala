@@ -17,7 +17,8 @@ case class FileEntry(
   * The RRFFiles file contains metadata on all of the files in the RRFDir. This is essential, since this contains a
   * list of all the columns in the file.
   */
-class RRFFiles(file: File, cols: RRFCols, filename: String = "MRFILES.RRF") extends RRFFile(file, filename) {
+class RRFFiles(file: File, cols: RRFCols, filename: String = "MRFILES.RRF")
+    extends RRFFile(file, filename) {
   /** Return a list of all files in an RRFFiles file. */
   def files: Seq[FileEntry] = {
     // We'll just hard-code this for now.
@@ -48,5 +49,6 @@ class RRFFiles(file: File, cols: RRFCols, filename: String = "MRFILES.RRF") exte
 
 object RRFFiles {
   /** Wrap an RRF file as an RRFFiles class. */
-  def fromRRF(rrfFile: RRFFile, rrfCols: RRFCols) = new RRFFiles(rrfFile.file, rrfCols, rrfFile.filename)
+  def fromRRF(rrfFile: RRFFile, rrfCols: RRFCols) =
+    new RRFFiles(rrfFile.file, rrfCols, rrfFile.filename)
 }
