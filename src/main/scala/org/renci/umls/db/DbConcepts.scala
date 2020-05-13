@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 import scala.collection.mutable
 import scala.io.Source
 
-/** A wrapper for RRFConcepts that uses  */
+/** A wrapper for RRFConcepts that uses SQLite */
 class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RRFConcepts(file, filename) with LazyLogging {
   implicit val halfMapCache: Cache[Seq[HalfMap]] = CaffeineCache[Seq[HalfMap]]
 
