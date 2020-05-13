@@ -1,15 +1,12 @@
 package org.renci.umls.db
 
 import java.io.File
-import java.sql.{Connection, PreparedStatement}
 
 import org.apache.commons.dbcp2.ConnectionFactory
-import org.renci.umls.rrf
 
 import scala.util.Try
 import org.renci.umls.rrf._
 
-import scala.collection.mutable
 import scala.io.Source
 
 /** Represents a single hierarchy entry. */
