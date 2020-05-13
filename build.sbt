@@ -1,7 +1,7 @@
 // Publication information
-name := "umls-rrf"
-ThisBuild / organization := "com.ggvaidya"
-ThisBuild / version      := "0.1-SNAPSHOT"
+name         := "umls-rrf"
+organization := "com.ggvaidya"
+version      := "0.1-SNAPSHOT"
 
 // Code license
 licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT"))
