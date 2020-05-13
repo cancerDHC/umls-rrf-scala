@@ -29,7 +29,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String) extends RR
   val conn1 = db.createConnection()
   val checkCount = conn1.createStatement()
   val results = Try { checkCount.executeQuery(s"SELECT COUNT(*) AS cnt FROM $tableName") }
-  val rowsFromDb = if (results.isSuccess) results.get.getInt(1) else -1
+  val rowsFromDb = results.map(_.getInt(1)).getOrElse(-1)
   conn1.close()
 
   if (rowsFromDb > 0 && rowsFromDb == rowCount) {
