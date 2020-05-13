@@ -4,7 +4,6 @@ import java.io.{File, FileOutputStream, PrintStream}
 
 import org.rogach.scallop._
 import org.rogach.scallop.exceptions._
-import com.typesafe.scalalogging.{LazyLogging, Logger}
 import org.renci.umls.rrf.RRFDir
 
 import scala.io.Source
@@ -12,15 +11,15 @@ import scala.io.Source
 /**
   * Map terms from one code system to another.
   */
-object CodeMapper extends App with LazyLogging {
+object CodeMapper extends App {
   /**
     * Command line configuration for CodeMapper.
     */
-  class Conf(arguments: Seq[String], logger: Logger) extends ScallopConf(arguments) {
+  class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
     override def onError(e: Throwable): Unit = e match {
       case ScallopException(message) =>
         printHelp
-        logger.error(message)
+        scribe.error(message)
         System.exit(1)
       case ex => super.onError(ex)
     }
@@ -51,27 +50,27 @@ object CodeMapper extends App with LazyLogging {
   }
 
   // Parse command line arguments.
-  val conf = new Conf(args.toIndexedSeq, logger)
+  val conf = new Conf(args.toIndexedSeq)
 
   // Read RRF directory.
   val rrfDir = new RRFDir(conf.rrfDir(), conf.sqliteDb())
-  logger.info(s"Loaded directory for release: ${rrfDir.releaseInfo}")
-  logger.info(s"Using SQLite backend: ${rrfDir.sqliteDb}")
+  scribe.info(s"Loaded directory for release: ${rrfDir.releaseInfo}")
+  scribe.info(s"Using SQLite backend: ${rrfDir.sqliteDb}")
 
   val concepts = rrfDir.concepts
   val sources = concepts.getSources
 
   if (conf.fromSource.isEmpty && conf.toSource.isEmpty) {
-    logger.info("Sources:")
+    scribe.info("Sources:")
     sources.map(entry => {
-      logger.info(s" - ${entry._1} (${entry._2} entries)")
+      scribe.info(s" - ${entry._1} (${entry._2} entries)")
     })
   } else if (conf.fromSource.isEmpty) {
     // We know sourceTo is set.
-    logger.error(s"--source-from is empty, although --source-to is set to '${conf.toSource()}'")
+    scribe.error(s"--source-from is empty, although --source-to is set to '${conf.toSource()}'")
   } else if (conf.toSource.isEmpty) {
     // We know sourceFrom is set.
-    logger.error(s"--source-to is empty, although --source-from is set to '${conf.fromSource()}'")
+    scribe.error(s"--source-to is empty, although --source-from is set to '${conf.fromSource()}'")
   } else {
     // Do we need to filter first?
 
@@ -94,7 +93,7 @@ object CodeMapper extends App with LazyLogging {
       })
     } else {
       val ids = Source.fromFile(conf.idFile()).getLines.map(_.trim).toSeq
-      logger.info(s"Filtering to ${ids.size} IDs from ${conf.idFile()}.")
+      scribe.info(s"Filtering to ${ids.size} IDs from ${conf.idFile()}.")
 
       val halfMapByCode = concepts.getHalfMapsForCodes(conf.fromSource(), ids).groupBy(_.code)
       val map = concepts.getMap(conf.fromSource(), ids, conf.toSource(), Seq.empty)
@@ -112,7 +111,7 @@ object CodeMapper extends App with LazyLogging {
           if (maps.nonEmpty) ("", Seq.empty)
           else {
             val termCuis = allTermCuis.getOrElse(id, Seq.empty)
-            // logger.info(s"Checking $termCuis for parent AUI information.")
+            // scribe.info(s"Checking $termCuis for parent AUI information.")
 
             val termAtomIds = concepts.getAUIsForCUIs(termCuis)
             val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds)
@@ -145,7 +144,7 @@ object CodeMapper extends App with LazyLogging {
         count += 1
         if (count % 100 == 0) {
           val percentage = count.toFloat / ids.size * 100
-          logger.info(f"Processed $count out of ${ids.size} IDs ($percentage%.2f%%)")
+          scribe.info(f"Processed $count out of ${ids.size} IDs ($percentage%.2f%%)")
         }
 
         (maps, parentHalfMaps)
@@ -158,11 +157,11 @@ object CodeMapper extends App with LazyLogging {
       val percentageTerm = (matchedTerm.size.toFloat / ids.size) * 100
       val percentageParent = (matchedParent.size.toFloat / ids.size) * 100
       val percentageTotal = (matchedTotal.size.toFloat / ids.size) * 100
-      logger.info(f"Matched ${matchedTerm.size} IDs out of ${ids.size} ($percentageTerm%.2f%%)")
-      logger.info(
+      scribe.info(f"Matched ${matchedTerm.size} IDs out of ${ids.size} ($percentageTerm%.2f%%)")
+      scribe.info(
         f"Matched a further ${matchedParent.size} IDs via the parent term ($percentageParent%.2f%%)"
       )
-      logger.info(
+      scribe.info(
         f"Total coverage: ${matchedTotal.size} IDs out of ${ids.size} ($percentageTotal%.2f%%)"
       )
     }

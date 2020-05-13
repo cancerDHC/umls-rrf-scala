@@ -3,7 +3,6 @@ package org.renci.umls.db
 import java.io.File
 import java.sql.{Connection, PreparedStatement}
 
-import com.typesafe.scalalogging.{LazyLogging, Logger}
 import org.apache.commons.dbcp2.ConnectionFactory
 import org.renci.umls.rrf
 
@@ -28,8 +27,7 @@ case class HierarchyEntry(
 
 /** A wrapper for RRFHierarchy that uses SQLite */
 class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
-    extends RRFHierarchy(file, filename)
-    with LazyLogging {
+    extends RRFHierarchy(file, filename) {
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRHIER_" + sha256
 
@@ -41,9 +39,9 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
   conn1.close()
 
   if (rowsFromDb > 0 && rowsFromDb == rowCount) {
-    logger.info(s"Hierarchy table $tableName has $rowsFromDb rows.")
+    scribe.info(s"Hierarchy table $tableName has $rowsFromDb rows.")
   } else {
-    logger.info(s"Hierarchy table $tableName is not present or is out of sync. Regenerating.")
+    scribe.info(s"Hierarchy table $tableName is not present or is out of sync. Regenerating.")
 
     val conn = db.createConnection()
     val regenerate = conn.createStatement()
@@ -77,7 +75,7 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
       count += 1
       if (count % 100000 == 0) {
         val percentage = count.toFloat / rowCount * 100
-        logger.info(f"Batched $count rows out of $rowCount ($percentage%.2f%%), executing.")
+        scribe.info(f"Batched $count rows out of $rowCount ($percentage%.2f%%), executing.")
         insertStmt.executeBatch()
         insertStmt.clearBatch()
       }

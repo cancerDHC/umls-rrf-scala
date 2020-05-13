@@ -3,7 +3,6 @@ package org.renci.umls.db
 import java.io.File
 import java.sql.{Connection, PreparedStatement}
 
-import com.typesafe.scalalogging.{LazyLogging, Logger}
 import org.apache.commons.dbcp2.ConnectionFactory
 import org.renci.umls.rrf
 
@@ -20,8 +19,7 @@ import scala.io.Source
 
 /** A wrapper for RRFConcepts that uses SQLite */
 class DbConcepts(db: ConnectionFactory, file: File, filename: String)
-    extends RRFConcepts(file, filename)
-    with LazyLogging {
+    extends RRFConcepts(file, filename) {
   implicit val halfMapCache: Cache[Seq[HalfMap]] = CaffeineCache[Seq[HalfMap]]
 
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
@@ -35,9 +33,9 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
   conn1.close()
 
   if (rowsFromDb > 0 && rowsFromDb == rowCount) {
-    logger.info(s"Concept table $tableName has $rowsFromDb rows.")
+    scribe.info(s"Concept table $tableName has $rowsFromDb rows.")
   } else {
-    logger.info(s"Concept table $tableName is not present or is out of sync. Regenerating.")
+    scribe.info(s"Concept table $tableName is not present or is out of sync. Regenerating.")
 
     val conn = db.createConnection()
     val regenerate = conn.createStatement()
@@ -80,7 +78,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
       count += 1
       if (count % 100000 == 0) {
         val percentage = count.toFloat / rowCount * 100
-        logger.info(f"Batched $count rows out of $rowCount ($percentage%.2f%%), executing.")
+        scribe.info(f"Batched $count rows out of $rowCount ($percentage%.2f%%), executing.")
         insertStmt.executeBatch()
         insertStmt.clearBatch()
       }
@@ -127,7 +125,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
         query.setString(1, source)
         val rs = query.executeQuery()
 
-        logger.info(s"Loading halfmaps for $source")
+        scribe.info(s"Loading halfmaps for $source")
         var halfMap = Seq[HalfMap]()
         var count = 0
         while (rs.next()) {
@@ -140,16 +138,16 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
           ) +: halfMap
           count += 1
           if (count % 100000 == 0) {
-            logger.info(s"Loaded $count halfmaps.")
+            scribe.info(s"Loaded $count halfmaps.")
           }
         }
 
         conn.close()
-        logger.info(s"${halfMap.size} halfmaps loaded.")
+        scribe.info(s"${halfMap.size} halfmaps loaded.")
 
         halfMap
       } else {
-        logger.info(s"Loading halfmaps for $source with identifiers: $ids.")
+        scribe.info(s"Loading halfmaps for $source with identifiers: $ids.")
 
         var halfMap = Seq[HalfMap]()
         var count = 0
@@ -181,11 +179,11 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
               count += 1
             }
 
-            logger.info(s"Loaded $count halfmaps.")
+            scribe.info(s"Loaded $count halfmaps.")
           })
 
         conn.close()
-        logger.info(s"${halfMap.size} halfmaps loaded.")
+        scribe.info(s"${halfMap.size} halfmaps loaded.")
 
         halfMap
       }
