@@ -83,6 +83,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     insertStmt.executeBatch()
 
     // Add indexes.
+    regenerate.execute(s"CREATE INDEX INDEX_MRCONSO_CUI ON $tableName (CUI);")
     regenerate.execute(s"CREATE INDEX INDEX_MRCONSO_SAB ON $tableName (SAB);")
     regenerate.execute(s"CREATE INDEX INDEX_MRCONSO_CODE ON $tableName (CODE);")
 
