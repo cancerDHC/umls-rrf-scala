@@ -84,6 +84,7 @@ object CodeMapper extends App {
     // Both sourceFrom and sourceTo are set!
     if (conf.idFile.isEmpty) {
       val maps = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
+
       stream.println("fromSource\tfromCode\ttoSource\ttoCode\tnciMTConceptIds\tlabels")
       maps.foreach(map => {
         stream.println(
@@ -92,6 +93,9 @@ object CodeMapper extends App {
             s"${map.conceptIds.mkString(", ")}\t" +
             s"${map.labels.mkString("|")}"
         )
+
+        val relations = rrfDir.relationships.getRelationshipsByCUIs(map.conceptIds)
+        scribe.info(s"Relations identified: ${relations.map(_ + "\n - ")}")
       })
     } else {
       val ids = Source.fromFile(conf.idFile()).getLines.map(_.trim).toSeq
