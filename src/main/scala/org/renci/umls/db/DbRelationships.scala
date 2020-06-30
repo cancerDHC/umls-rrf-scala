@@ -121,7 +121,47 @@ class DbRelationships(db: ConnectionFactory, file: File, filename: String, dbCon
 
     val mrconso_tablename = dbConcepts.tableName
     val conn = db.createConnection()
-    val questions = cuis.map(_ => "?").mkString(", ")
+    val questions = cuis.toSeq.map(_ => "?").mkString(", ")
+    val query =
+      conn.prepareStatement(s"""
+      SELECT DISTINCT CUI1, mrconso1.STR AS label1, AUI1, REL, RELA, DIR, CUI2, mrconso2.STR AS label2, AUI2
+      FROM $tableName
+        LEFT JOIN ${mrconso_tablename} AS mrconso1 ON CUI1=mrconso1.CUI
+        LEFT JOIN ${mrconso_tablename} AS mrconso2 ON CUI2=mrconso2.CUI
+      WHERE CUI1 IN ($questions)
+      ;""")
+    val indexedSeq = cuis.toIndexedSeq
+    scribe.info(s"Prepared questions ${questions} for CUIs: ${cuis}")
+    (1 to cuis.size).foreach(index => {
+      query.setString(index, indexedSeq(index - 1))
+    })
+
+    var results = Seq[Relation]()
+    val rs = query.executeQuery()
+    while (rs.next()) {
+      results = Relation(
+        rs.getString(1),
+        rs.getString(2),
+        rs.getString(3),
+        rs.getString(4),
+        rs.getString(5),
+        rs.getString(6),
+        rs.getString(7),
+        rs.getString(8),
+        rs.getString(9)
+      ) +: results
+    }
+    conn.close()
+
+    results
+  }
+
+  def getEitherRelationshipsByCUIs(cuis: Set[String]): Seq[Relation] = {
+    if (cuis.isEmpty) return Seq.empty
+
+    val mrconso_tablename = dbConcepts.tableName
+    val conn = db.createConnection()
+    val questions = cuis.toSeq.map(_ => "?").mkString(", ")
     val query =
       conn.prepareStatement(s"""
       SELECT DISTINCT CUI1, mrconso1.STR AS label1, AUI1, REL, RELA, DIR, CUI2, mrconso2.STR AS label2, AUI2
@@ -131,6 +171,7 @@ class DbRelationships(db: ConnectionFactory, file: File, filename: String, dbCon
       WHERE CUI1 IN ($questions) OR CUI2 IN ($questions)
       ;""")
     val indexedSeq = cuis.toIndexedSeq
+    scribe.info(s"Prepared questions ${questions} for CUIs: ${cuis}")
     (1 to cuis.size).foreach(index => {
       query.setString(index, indexedSeq(index - 1))
       query.setString(index + cuis.size, indexedSeq(index - 1))
