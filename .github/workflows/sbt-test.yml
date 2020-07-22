@@ -19,4 +19,4 @@ jobs:
     - name: Run tests
       run: sbt test
     - name: Check code style with Scalafmt
-      run: sbt 
+      run: sbt scalafmtCheckAll
