@@ -3,7 +3,7 @@ package org.renci.umls.rrf
 import java.io.File
 
 import org.apache.commons.dbcp2.DriverManagerConnectionFactory
-import org.renci.umls.db.{DbConcepts, DbHierarchy}
+import org.renci.umls.db.{DbConcepts, DbHierarchy, DbMappings}
 
 import scala.io.Source
 
@@ -20,14 +20,19 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   def getFile(filename: String): File = {
     val file = new File(dir, filename)
 
-    if (!file.exists()) throw new RuntimeException(s"Directory ${dir.getCanonicalPath} does not contain expected file $filename.")
+    if (!file.exists())
+      throw new RuntimeException(
+        s"Directory ${dir.getCanonicalPath} does not contain expected file $filename."
+      )
 
     file
   }
   def getRRFFile(filename: String): RRFFile = new RRFFile(getFile(filename), filename)
 
   /** Set up an SQLite database for us to use. */
-  lazy val sqliteDb:DriverManagerConnectionFactory = new DriverManagerConnectionFactory("jdbc:sqlite:" + sqliteDbFile.getPath)
+  lazy val sqliteDb: DriverManagerConnectionFactory = new DriverManagerConnectionFactory(
+    "jdbc:sqlite:" + sqliteDbFile.getPath
+  )
 
   /** Get the release information for this release (from release.dat) */
   lazy val releaseInfo: String = Source.fromFile(getFile("release.dat")).mkString
@@ -43,4 +48,7 @@ class RRFDir(dir: File, sqliteDbFile: File) {
 
   /** Loads MRCONSO.RRF files and makes them available. */
   lazy val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))
+
+  /** Loads MRMAP.RRF files and makes them available. */
+  val mappings: DbMappings = DbMappings.fromDatabase(sqliteDb, getRRFFile("MRMAP.RRF"))
 }
