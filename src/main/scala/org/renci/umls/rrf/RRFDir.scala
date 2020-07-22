@@ -50,5 +50,6 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   lazy val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))
 
   /** Loads MRREL.RRF files and makes them available. */
-  lazy val relationships: DbRelationships = DbRelationships.fromDatabase(sqliteDb, getRRFFile("MRREL.RRF"), concepts)
+  lazy val relationships: DbRelationships =
+    DbRelationships.fromDatabase(sqliteDb, getRRFFile("MRREL.RRF"), concepts)
 }

@@ -11,13 +11,13 @@ import scala.io.Source
 
 /** Represents a single hierarchy entry. */
 case class Relationship(
-  ConceptId1: String,     // CUI1
-  AtomId1: String,        // AUI1
-  SourceType1: String,    // STYPE1
-  Relationship: String,   // REL
-  ConceptId2: String,     // CUI2
-  AtomId2: String,        // AUI2
-  SourceType2: String,    // STYPE2
+  ConceptId1: String, // CUI1
+  AtomId1: String, // AUI1
+  SourceType1: String, // STYPE1
+  Relationship: String, // REL
+  ConceptId2: String, // CUI2
+  AtomId2: String, // AUI2
+  SourceType2: String, // STYPE2
   SpecificRelationship: String, // RELA
   RelationshipId: String, // RUI
   SourceRelationshipId: String, // SRUI
@@ -44,6 +44,7 @@ case class Relation(
 /** A wrapper for RRFRelationships that uses SQLite */
 class DbRelationships(db: ConnectionFactory, file: File, filename: String, dbConcepts: DbConcepts)
     extends RRFHierarchy(file, filename) {
+
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRREL_" + sha256
 
@@ -199,6 +200,7 @@ class DbRelationships(db: ConnectionFactory, file: File, filename: String, dbCon
 }
 
 object DbRelationships {
+
   /** Wrap an RRF file using a database to cache results. */
   def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile, dbConcepts: DbConcepts) =
     new DbRelationships(db, rrfFile.file, rrfFile.filename, dbConcepts: DbConcepts)

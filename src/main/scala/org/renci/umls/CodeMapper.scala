@@ -135,7 +135,9 @@ object CodeMapper extends App {
               val rels = rrfDir.relationships.getRelationshipsByCUIs(termCuis.toSet)
               rels
                 .filter(r => r.rel.equals("PAR")) // Only look for PARent relations.
-                .filter(r => !r.cui1.equals(r.cui2) && !termCuis.contains(r.cui2)) // Make sure we're not accidentally finding relations to ourselves.
+                .filter(
+                  r => !r.cui1.equals(r.cui2) && !termCuis.contains(r.cui2)
+                ) // Make sure we're not accidentally finding relations to ourselves.
                 .map(_.cui2)
                 .toSet
             } else {
@@ -177,8 +179,10 @@ object CodeMapper extends App {
             .groupBy(r => if (r.rela.isEmpty) r.rel else s"${r.rel}:${r.rela}")
             .transform((relName, rs) => {
               // If there are fewer than four examples, list all three.
-              val examples = if (rs.size < 4) rs.map(r => s"${r.cui2} + [${r.label2}]").mkString(", ")
-              else s"${rs.take(3).map(r => s"${r.cui2} [${r.label2}]").mkString(", ")}...${rs.size - 3} other"
+              val examples =
+                if (rs.size < 4) rs.map(r => s"${r.cui2} + [${r.label2}]").mkString(", ")
+                else
+                  s"${rs.take(3).map(r => s"${r.cui2} [${r.label2}]").mkString(", ")}...${rs.size - 3} other"
 
               (rs.size, s"${relName} (${examples})")
             })
@@ -189,18 +193,28 @@ object CodeMapper extends App {
             .mkString(", ")
         }
 
-        lazy val relsFromTermStr = if (maps.nonEmpty) "" else {
-          val relationshipsFromTerm = rrfDir.relationships.getRelationshipsByCUIs(termCUIs)
-          scribe.info(s"Found relationships for ${termCUIs.mkString("|")} [${halfMaps.map(_.label).headOption.getOrElse("")}]: ${summarizeRelationships(termCUIs, relationshipsFromTerm)}")
-          summarizeRelationships(termCUIs, relationshipsFromTerm)
-        }
+        lazy val relsFromTermStr =
+          if (maps.nonEmpty) ""
+          else {
+            val relationshipsFromTerm = rrfDir.relationships.getRelationshipsByCUIs(termCUIs)
+            scribe.info(
+              s"Found relationships for ${termCUIs
+                .mkString("|")} [${halfMaps.map(_.label).headOption.getOrElse("")}]: ${summarizeRelationships(termCUIs, relationshipsFromTerm)}"
+            )
+            summarizeRelationships(termCUIs, relationshipsFromTerm)
+          }
 
-        lazy val relsFromParentStr = if (maps.nonEmpty || parentHalfMaps.isEmpty) "" else {
-          val parentCUIs = parentHalfMaps.map(_.cui).toSet
-          val relationshipsFromParent = rrfDir.relationships.getRelationshipsByCUIs(parentCUIs)
-          scribe.info(s"Found relationships for parent of ${termCUIs.mkString("|")} [${halfMaps.map(_.label).headOption.getOrElse("")}]: ${summarizeRelationships(parentCUIs, relationshipsFromParent)}")
-          summarizeRelationships(parentCUIs, relationshipsFromParent)
-        }
+        lazy val relsFromParentStr =
+          if (maps.nonEmpty || parentHalfMaps.isEmpty) ""
+          else {
+            val parentCUIs = parentHalfMaps.map(_.cui).toSet
+            val relationshipsFromParent = rrfDir.relationships.getRelationshipsByCUIs(parentCUIs)
+            scribe.info(
+              s"Found relationships for parent of ${termCUIs
+                .mkString("|")} [${halfMaps.map(_.label).headOption.getOrElse("")}]: ${summarizeRelationships(parentCUIs, relationshipsFromParent)}"
+            )
+            summarizeRelationships(parentCUIs, relationshipsFromParent)
+          }
 
         stream.println(
           s"${conf.fromSource()}\t$id\t${termCUIs.mkString("|")}\t${halfMaps
@@ -209,9 +223,9 @@ object CodeMapper extends App {
             .mkString("|")}\t${maps.size}\t${parentHalfMaps.size}"
             + s"\t${maps.map(m => m.toSource + ":" + m.toCode).mkString("|")}"
             + s"\t${maps.map(_.labels.mkString(";")).mkString("|")}"
-            //+ s"\t${relsFromTermStr}"
+          //+ s"\t${relsFromTermStr}"
             + s"$parentStr"
-            //+ s"\t${relsFromParentStr}"
+          //+ s"\t${relsFromParentStr}"
         )
 
         count += 1
