@@ -25,6 +25,7 @@ case class HierarchyEntry(
 /** A wrapper for RRFHierarchy that uses SQLite */
 class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
     extends RRFHierarchy(file, filename) {
+
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRHIER_" + sha256
 
@@ -111,6 +112,7 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
 }
 
 object DbHierarchy {
+
   /** Wrap an RRF file using a database to cache results. */
   def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile) =
     new DbHierarchy(db, rrfFile.file, rrfFile.filename)

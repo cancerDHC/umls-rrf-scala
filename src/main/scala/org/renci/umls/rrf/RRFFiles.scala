@@ -19,6 +19,7 @@ case class FileEntry(
   */
 class RRFFiles(file: File, cols: RRFCols, filename: String = "MRFILES.RRF")
     extends RRFFile(file, filename) {
+
   /** Return a list of all files in an RRFFiles file. */
   def files: Seq[FileEntry] = {
     // We'll just hard-code this for now.
@@ -48,6 +49,7 @@ class RRFFiles(file: File, cols: RRFCols, filename: String = "MRFILES.RRF")
 }
 
 object RRFFiles {
+
   /** Wrap an RRF file as an RRFFiles class. */
   def fromRRF(rrfFile: RRFFile, rrfCols: RRFCols) =
     new RRFFiles(rrfFile.file, rrfCols, rrfFile.filename)

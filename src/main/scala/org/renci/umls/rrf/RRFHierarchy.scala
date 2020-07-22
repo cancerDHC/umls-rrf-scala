@@ -19,6 +19,7 @@ case class HierarchyEntry(
   * The RRFHierarchy file contains hierarchy information on atoms in the system.
   */
 class RRFHierarchy(file: File, filename: String = "MRHIER.RRF") extends RRFFile(file, filename) {
+
   /** A list of all columns in an RRFCols file. */
   lazy val hierarchies: Seq[HierarchyEntry] = {
     // We'll just hard-code this for now.
@@ -42,6 +43,7 @@ class RRFHierarchy(file: File, filename: String = "MRHIER.RRF") extends RRFFile(
 }
 
 object RRFHierarchy {
+
   /** Wrap an RRF file as an RRFHierarchy. */
   def fromRRF(rrfFile: RRFFile) = new RRFHierarchy(rrfFile.file, rrfFile.filename)
 }

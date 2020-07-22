@@ -12,17 +12,19 @@ import scala.io.Source
   * Map terms from one code system to another.
   */
 object CodeMapper extends App {
+
   /**
     * Command line configuration for CodeMapper.
     */
   class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
-    override def onError(e: Throwable): Unit = e match {
-      case ScallopException(message) =>
-        printHelp
-        scribe.error(message)
-        System.exit(1)
-      case ex => super.onError(ex)
-    }
+    override def onError(e: Throwable): Unit =
+      e match {
+        case ScallopException(message) =>
+          printHelp
+          scribe.error(message)
+          System.exit(1)
+        case ex => super.onError(ex)
+      }
 
     val version = getClass.getPackage.getImplementationVersion
     version(s"CodeMapper: map from one source to another (v$version)")
@@ -125,8 +127,11 @@ object CodeMapper extends App {
             val codes = halfMaps.map(_.code).toSet
             val labels = halfMaps.map(_.label).toSet
 
-            (s"\t${cuis.mkString("|")}\t${sources.mkString("|")}\t${codes.mkString("|")}\t${labels
-              .mkString("|")}", halfMaps)
+            (
+              s"\t${cuis.mkString("|")}\t${sources.mkString("|")}\t${codes.mkString("|")}\t${labels
+                .mkString("|")}",
+              halfMaps
+            )
           }
 
         val halfMaps = halfMapByCode.getOrElse(id, Seq())

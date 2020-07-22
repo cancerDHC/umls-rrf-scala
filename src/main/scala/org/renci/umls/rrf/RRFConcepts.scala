@@ -28,6 +28,7 @@ case class Concept(
   * The RRFConcepts file allows you to read concept data from MRCONSO.RRF.
   */
 class RRFConcepts(file: File, filename: String = "MRCONSO.RRF") extends RRFFile(file, filename) {
+
   /** A list of all columns in an RRFConcepts file. */
   def concepts(): Seq[Concept] = {
     // We'll just hard-code this for now.
@@ -63,6 +64,7 @@ class RRFConcepts(file: File, filename: String = "MRCONSO.RRF") extends RRFFile(
 }
 
 object RRFConcepts {
+
   /** Wrap an RRF file as an RRFCols. */
   def fromRRF(rrfFile: RRFFile) = new RRFConcepts(rrfFile.file, rrfFile.filename)
 }

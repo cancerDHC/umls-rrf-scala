@@ -18,6 +18,7 @@ case class Column(
   * The RRFCols file contains metadata on all of the columns across all files in the RRFDir.
   */
 class RRFCols(file: File, filename: String = "MRCOLS.RRF") extends RRFFile(file, filename) {
+
   /** A list of all columns in an RRFCols file. */
   val columns: Seq[Column] = {
     // We'll just hard-code this for now.
@@ -56,6 +57,7 @@ class RRFCols(file: File, filename: String = "MRCOLS.RRF") extends RRFFile(file,
 }
 
 object RRFCols {
+
   /** Wrap an RRF file as an RRFCols. */
   def fromRRF(rrfFile: RRFFile) = new RRFCols(rrfFile.file, rrfFile.filename)
 }

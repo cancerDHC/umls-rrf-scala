@@ -330,6 +330,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
 }
 
 object DbConcepts {
+
   /** Wrap an RRF file using a database to cache results. */
   def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile) =
     new DbConcepts(db, rrfFile.file, rrfFile.filename)
