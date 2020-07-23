@@ -85,7 +85,9 @@ object CodeMapper extends App {
     // Both sourceFrom and sourceTo are set!
     if (conf.idFile.isEmpty) {
       val maps = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
-      stream.println("subject_id\tsubject_label\tpredicate_id\tpredicate_label\tobject_id\tobject_label\tmatch_type\tmapping_set_id\tmapping_set_version\tcomment")
+      stream.println(
+        "subject_id\tsubject_label\tpredicate_id\tpredicate_label\tobject_id\tobject_label\tmatch_type\tmapping_set_id\tmapping_set_version\tcomment"
+      )
       maps.foreach(map => {
         stream.println(
           s"${map.fromSource}:${map.fromCode}\t${concepts.getLabelsForCodes(map.fromSource, Seq(map.fromCode)).mkString("|")}\t" +

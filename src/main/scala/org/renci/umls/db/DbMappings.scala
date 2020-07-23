@@ -1,25 +1,20 @@
 package org.renci.umls.db
 
 import java.io.File
-import java.sql.{Connection, PreparedStatement}
 
-import com.typesafe.scalalogging.{LazyLogging, Logger}
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.dbcp2.ConnectionFactory
-import org.renci.umls.rrf
 
 import scala.util.Try
 import org.renci.umls.rrf._
-import scalacache._
-import scalacache.caffeine._
-import scalacache.memoization._
-import scalacache.modes.sync._
 
-import scala.concurrent.duration._
-import scala.collection.mutable
 import scala.io.Source
 
-/** A wrapper for RRFMappings that uses  */
-class DbMappings(db: ConnectionFactory, file: File, filename: String) extends RRFMappings(file, filename) with LazyLogging {
+/** A wrapper for RRFMappings that uses */
+class DbMappings(db: ConnectionFactory, file: File, filename: String)
+    extends RRFMappings(file, filename)
+    with LazyLogging {
+
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRMAP_" + sha256
 
@@ -69,7 +64,7 @@ class DbMappings(db: ConnectionFactory, file: File, filename: String) extends RR
 
     val insertStmt = conn.prepareStatement(
       s"INSERT INTO $tableName (MAPSETCUI, MAPSETSAB, MAPSUBSETID, MAPRANK, MAPID, MAPSID, FROMID, FROMSID, FROMEXPR, FROMTYPE, FROMRULE, FROMRES, REL, RELA, TOID, TOSID, TOEXPR, TOTYPE, TORULE, TORES, MAPRULE, MAPRES, MAPTYPE, MAPATN, MAPATV, CVF) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
 
     var count = 0
@@ -83,7 +78,7 @@ class DbMappings(db: ConnectionFactory, file: File, filename: String) extends RR
 
       count += 1
       if (count % 100000 == 0) {
-        val percentage = count.toFloat/rowCount*100
+        val percentage = count.toFloat / rowCount * 100
         logger.info(f"Batched $count rows out of $rowCount ($percentage%.2f%%), executing.")
         insertStmt.executeBatch()
         insertStmt.clearBatch()
@@ -101,6 +96,8 @@ class DbMappings(db: ConnectionFactory, file: File, filename: String) extends RR
 }
 
 object DbMappings {
+
   /** Wrap an RRF file using a database to cache results. */
-  def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile) = new DbMappings(db, rrfFile.file, rrfFile.filename)
+  def fromDatabase(db: ConnectionFactory, rrfFile: RRFFile) =
+    new DbMappings(db, rrfFile.file, rrfFile.filename)
 }

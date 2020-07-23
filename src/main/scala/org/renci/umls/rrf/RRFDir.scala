@@ -6,7 +6,6 @@ import org.apache.commons.dbcp2.DriverManagerConnectionFactory
 import org.renci.umls.db.{DbConcepts, DbHierarchy, DbMappings}
 
 import scala.io.Source
-import scala.util.matching.Regex.Match
 
 /**
   * Wraps an entire directory of RRF files. This generally contains a release.dat file with release information and the
@@ -40,7 +39,7 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   val umlsVersionRegex = "(?m)^umls.release.name=(.*)\\s*$".r.unanchored
   lazy val releaseName: String = releaseInfo match {
     case umlsVersionRegex(version) => version
-    case _ => "unknown"
+    case _                         => "unknown"
   }
 
   /** Loads MRCOLS.RRF files and makes them available. */
