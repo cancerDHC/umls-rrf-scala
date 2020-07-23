@@ -18,6 +18,7 @@ import scala.io.Source
 class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     extends RRFConcepts(file, filename) {
   implicit val halfMapCache: Cache[Seq[HalfMap]] = CaffeineCache[Seq[HalfMap]]
+  implicit val stringSetCache: Cache[Set[String]] = CaffeineCache[Set[String]]
 
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRCONSO_" + sha256
@@ -109,7 +110,16 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     results
   }
 
-  // We use the CUIs to map everything from the fromSource to the toSource.
+  /**
+    * A "half map" maps a NCImt concept identifier to an identifier from another source.
+    * Details are available at https://www.ncbi.nlm.nih.gov/books/NBK9685/#ch03.sec3.3.4
+    *
+    * @param cui The NCImt concept identifier.
+    * @param aui The NCImt atom identifier (https://www.ncbi.nlm.nih.gov/books/NBK9684/#ch02.sec2.3.3).
+    * @param source The abbreviated source name (e.g. "AIR" or -- when versioned -- "AIR93").
+    * @param code The source-asserted identifier.
+    * @param label The label used for this concept.
+    */
   case class HalfMap(cui: String, aui: String, source: String, code: String, label: String)
 
   def getHalfMapsForCodes(source: String, ids: Seq[String]): Seq[HalfMap] =
@@ -184,6 +194,11 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
 
         halfMap
       }
+    }
+
+  def getLabelsForCodes(source: String, ids: Seq[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      getHalfMapsForCodes(source, ids).map(_.label).toSet
     }
 
   case class Mapping(

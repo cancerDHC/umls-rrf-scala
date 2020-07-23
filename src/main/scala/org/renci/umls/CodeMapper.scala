@@ -57,6 +57,7 @@ object CodeMapper extends App {
   // Read RRF directory.
   val rrfDir = new RRFDir(conf.rrfDir(), conf.sqliteDb())
   scribe.info(s"Loaded directory for release: ${rrfDir.releaseInfo}")
+  scribe.info(s"UMLS release name: ${rrfDir.releaseName}.")
   scribe.info(s"Using SQLite backend: ${rrfDir.sqliteDb}")
 
   val concepts = rrfDir.concepts
@@ -84,13 +85,15 @@ object CodeMapper extends App {
     // Both sourceFrom and sourceTo are set!
     if (conf.idFile.isEmpty) {
       val maps = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
-      stream.println("fromSource\tfromCode\ttoSource\ttoCode\tnciMTConceptIds\tlabels")
+      stream.println("subject_id\tsubject_label\tpredicate_id\tpredicate_label\tobject_id\tobject_label\tmatch_type\tmapping_set_id\tmapping_set_version\tcomment")
       maps.foreach(map => {
         stream.println(
-          s"${map.fromSource}\t${map.fromCode}\t" +
-            s"${map.toSource}\t${map.toCode}\t" +
-            s"${map.conceptIds.mkString(", ")}\t" +
-            s"${map.labels.mkString("|")}"
+          s"${map.fromSource}:${map.fromCode}\t${concepts.getLabelsForCodes(map.fromSource, Seq(map.fromCode)).mkString("|")}\t" +
+            s"skos:exactMatch\tThe subject and the object can, with a high degree of confidence, be used interchangeably across a wide range of information retrieval applications.\t" +
+            s"${map.toSource}:${map.toCode}\t${concepts.getLabelsForCodes(map.toSource, Seq(map.toCode)).mkString("|")}\t" +
+            s"http://purl.org/sssom/type/Complex\t" +
+            s"https://ncim.nci.nih.gov/ncimbrowser/\t${rrfDir.releaseName}\t" +
+            s"Both subject and object are mapped to NCI Metathesaurus CUIs: ${map.conceptIds.mkString("|")}"
         )
       })
     } else {
