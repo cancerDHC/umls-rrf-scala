@@ -124,19 +124,22 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
   case class HalfMap(cui: String, aui: String, source: String, code: String, label: String)
 
   /** Return all known labels for a set of concepts */
-  def getLabelsForCodes(source: String, ids: Seq[String]): Set[String] = memoizeSync(Some(2.seconds)) {
-    ids.flatMap(getLabelsForCode(source, _)).toSet
-  }
+  def getLabelsForCodes(source: String, ids: Seq[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      ids.flatMap(getLabelsForCode(source, _)).toSet
+    }
 
   /** Return all known labels for a single concept */
-  def getLabelsForCode(source: String, id: String): Set[String] = memoizeSync(Some(2.seconds)){
-    getHalfMapsForCodes (source, Seq (id) ).map(_.label).toSet
-  }
+  def getLabelsForCode(source: String, id: String): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      getHalfMapsForCodes(source, Seq(id)).map(_.label).toSet
+    }
 
   /** Return all known labels for a single CUI */
-  def getLabelsForCUI(cui: String): Set[String] = memoizeSync(Some(2.seconds)){
-    getHalfMapsByCUIs(Set(cui)).map(_.label).toSet
-  }
+  def getLabelsForCUI(cui: String): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      getHalfMapsByCUIs(Set(cui)).map(_.label).toSet
+    }
 
   /**
     * Return all half-maps for a set of concept identifiers.

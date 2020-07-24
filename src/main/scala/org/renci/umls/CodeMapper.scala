@@ -145,7 +145,7 @@ object CodeMapper extends App {
           } else {
             val halfMaps = concepts.getHalfMapsByCUIs(parentCUIs.toSet, conf.toSource())
 
-            if(halfMaps.nonEmpty) {
+            if (halfMaps.nonEmpty) {
               halfMaps.foreach(halfMap => {
                 stream.println(
                   s"${conf.fromSource()}:$id\t${concepts.getLabelsForCode(conf.fromSource(), id).mkString("|")}\t" +
@@ -153,7 +153,8 @@ object CodeMapper extends App {
                     s"${halfMap.source}:${halfMap.code}\t${concepts.getLabelsForCode(halfMap.source, halfMap.code).mkString("|")}\t" +
                     s"http://purl.org/sssom/type/Complex\t" +
                     s"https://ncim.nci.nih.gov/ncimbrowser/\t${rrfDir.releaseName}\t" +
-                    s"The subject (CUI ${termCuis.toSet.mkString("|")}) has a parent term (CUI ${parentCUIs.toSet.mkString("|")}) " +
+                    s"The subject (CUI ${termCuis.toSet
+                      .mkString("|")}) has a parent term (CUI ${parentCUIs.toSet.mkString("|")}) " +
                     s"that can be mapped to CUIs in the output source (CUI ${halfMaps.map(_.cui).toSet.mkString("|")})"
                 )
               })
@@ -170,7 +171,9 @@ object CodeMapper extends App {
         }
       })
 
-      println(f"Processed $count IDs, of which $countMatchDirect (${countMatchDirect/count.toFloat*100}%.2f%%) were matched directly, and $countMatchViaParent (${countMatchViaParent/count.toFloat*100}%.2f%%) were matched via parent.")
+      println(
+        f"Processed $count IDs, of which $countMatchDirect (${countMatchDirect / count.toFloat * 100}%.2f%%) were matched directly, and $countMatchViaParent (${countMatchViaParent / count.toFloat * 100}%.2f%%) were matched via parent."
+      )
     }
 
     stream.close()
