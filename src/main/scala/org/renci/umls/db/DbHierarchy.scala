@@ -7,6 +7,12 @@ import org.apache.commons.dbcp2.ConnectionFactory
 import scala.util.Try
 import org.renci.umls.rrf._
 
+import scalacache.caffeine._
+import scalacache.memoization._
+import scalacache.modes.sync._
+
+import scala.concurrent.duration._
+
 import scala.io.Source
 
 /** Represents a single hierarchy entry. */
@@ -25,6 +31,8 @@ case class HierarchyEntry(
 /** A wrapper for RRFHierarchy that uses SQLite */
 class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
     extends RRFHierarchy(file, filename) {
+
+  implicit val stringSetCache = CaffeineCache[Set[String]]
 
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRHIER_" + sha256
@@ -88,27 +96,29 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
     conn.close()
   }
 
-  override def getParents(atomIds: Seq[String]): Set[String] = {
-    if (atomIds.isEmpty) return Set()
+  override def getParents(atomIdSet: Set[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      if (atomIdSet.isEmpty) return Set()
 
-    val conn = db.createConnection()
-    val questions = atomIds.map(_ => "?").mkString(", ")
-    val query =
-      conn.prepareStatement(s"SELECT DISTINCT PAUI FROM $tableName WHERE AUI IN ($questions)")
-    val indexedSeq = atomIds.toIndexedSeq
-    (1 to atomIds.size).foreach(index => {
-      query.setString(index, indexedSeq(index - 1))
-    })
+      val conn = db.createConnection()
+      val atomIds = atomIdSet.toIndexedSeq
+      val questions = atomIds.map(_ => "?").mkString(", ")
+      val query =
+        conn.prepareStatement(s"SELECT DISTINCT PAUI FROM $tableName WHERE AUI IN ($questions)")
+      val indexedSeq = atomIds.toIndexedSeq
+      (1 to atomIds.size).foreach(index => {
+        query.setString(index, indexedSeq(index - 1))
+      })
 
-    var results = Seq[String]()
-    val rs = query.executeQuery()
-    while (rs.next()) {
-      results = rs.getString(1) +: results
+      var results = Seq[String]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        results = rs.getString(1) +: results
+      }
+      conn.close()
+
+      results.toSet
     }
-    conn.close()
-
-    results.toSet
-  }
 }
 
 object DbHierarchy {
