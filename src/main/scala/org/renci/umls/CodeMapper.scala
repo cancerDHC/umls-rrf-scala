@@ -119,6 +119,12 @@ object CodeMapper extends App {
       ids.foreach(id => {
         count += 1
 
+        if (count % 100 == 0) {
+          scribe.info(
+            f"Processing ID ${conf.fromSource()}:$id ($count out of ${ids.size}: ${count / ids.size.toFloat * 100}%.2f%%)"
+          )
+        }
+
         val maps = mapByFromId.getOrElse(id, Seq())
         if (maps.nonEmpty) {
           countMatchDirect += 1
