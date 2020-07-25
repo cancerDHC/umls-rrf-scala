@@ -155,17 +155,21 @@ object CodeMapper extends App {
             val halfMaps = concepts.getHalfMapsByCUIs(parentCUIs.toSet, conf.toSource())
 
             if (halfMaps.nonEmpty) {
-              halfMaps.foreach(halfMap => {
-                stream.println(
-                  s"${conf.fromSource()}:$id\t${concepts.getLabelsForCode(conf.fromSource(), id).mkString("|")}\t" +
-                    s"skos:narrowMatch\tThe subject is taxonomically narrower than the object.\t" +
-                    s"${halfMap.source}:${halfMap.code}\t${concepts.getLabelsForCode(halfMap.source, halfMap.code).mkString("|")}\t" +
-                    s"http://purl.org/sssom/type/Complex\t" +
-                    s"https://ncim.nci.nih.gov/ncimbrowser/\t${rrfDir.releaseName}\t" +
-                    s"The subject (CUI ${termCuis.toSet
-                      .mkString("|")}) has a parent term (CUI ${parentCUIs.toSet.mkString("|")}) " +
-                    s"that can be mapped to CUIs in the output source (CUI ${halfMaps.map(_.cui).toSet.mkString("|")})"
-                )
+              val sources: Set[(String, String, String)] =
+                halfMaps.map(hm => (hm.source, hm.code, hm.cui)).toSet
+
+              sources.foreach({
+                case (toSource, toId, toCui) =>
+                  stream.println(
+                    s"${conf.fromSource()}:$id\t${concepts.getLabelsForCode(conf.fromSource(), id).mkString("|")}\t" +
+                      s"skos:narrowMatch\tThe subject is taxonomically narrower than the object.\t" +
+                      s"$toSource:$toId\t${concepts.getLabelsForCode(toSource, toId).mkString("|")}\t" +
+                      s"http://purl.org/sssom/type/Complex\t" +
+                      s"https://ncim.nci.nih.gov/ncimbrowser/\t${rrfDir.releaseName}\t" +
+                      s"The subject (CUI ${termCuis.toSet
+                        .mkString("|")}) has a parent term (CUI ${parentCUIs.toSet.mkString("|")}) " +
+                      s"that can be mapped to CUIs in the output source (CUI $toCui)"
+                  )
               })
 
               countMatchViaParent += 1
