@@ -6,6 +6,7 @@ import org.rogach.scallop._
 import org.rogach.scallop.exceptions._
 import org.renci.umls.rrf.RRFDir
 
+import scala.concurrent.duration.Duration
 import scala.io.Source
 
 /**
@@ -112,6 +113,8 @@ object CodeMapper extends App {
       var countMatchDirect = 0
       var countMatchViaParent = 0
 
+      val startTime = System.nanoTime()
+
       val mapByFromId = map.groupBy(_.fromCode)
       ids.foreach(id => {
         count += 1
@@ -171,8 +174,12 @@ object CodeMapper extends App {
         }
       })
 
-      println(
-        f"Processed $count IDs, of which $countMatchDirect (${countMatchDirect / count.toFloat * 100}%.2f%%) were matched directly, and $countMatchViaParent (${countMatchViaParent / count.toFloat * 100}%.2f%%) were matched via parent."
+      val duration = Duration.fromNanos(System.nanoTime() - startTime)
+      scribe.info(
+        f"Processed $count IDs in ${duration.toCoarsest} (${duration.toSeconds / count.toFloat}%.2f seconds per ID)"
+      )
+      scribe.info(
+        f"Of these, $countMatchDirect (${countMatchDirect / count.toFloat * 100}%.2f%%) were matched directly, and $countMatchViaParent (${countMatchViaParent / count.toFloat * 100}%.2f%%) were matched via parent."
       )
     }
 
