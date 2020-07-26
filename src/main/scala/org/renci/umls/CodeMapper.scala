@@ -186,7 +186,7 @@ object CodeMapper extends App {
 
       val duration = Duration.fromNanos(System.nanoTime() - startTime)
       scribe.info(
-        f"Processed $count IDs in ${duration.toCoarsest} (${duration.toSeconds / count.toFloat}%.2f seconds per ID)"
+        f"Processed $count IDs in ${duration.toMinutes} mins (${duration.toSeconds / count.toFloat}%.2f seconds per ID)"
       )
       scribe.info(
         f"Of these, $countMatchDirect (${countMatchDirect / count.toFloat * 100}%.2f%%) were matched directly, and $countMatchViaParent (${countMatchViaParent / count.toFloat * 100}%.2f%%) were matched via parent."
