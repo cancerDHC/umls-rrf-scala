@@ -6,7 +6,6 @@ import org.apache.commons.dbcp2.ConnectionFactory
 
 import scala.util.Try
 import org.renci.umls.rrf._
-import scalacache._
 import scalacache.caffeine._
 import scalacache.memoization._
 import scalacache.modes.sync._
@@ -17,9 +16,10 @@ import scala.io.Source
 /** A wrapper for RRFConcepts that uses SQLite */
 class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     extends RRFConcepts(file, filename) {
-  implicit val halfMapSeqCache: Cache[Seq[HalfMap]] = CaffeineCache[Seq[HalfMap]]
-  implicit val halfMapSetCache: Cache[Set[HalfMap]] = CaffeineCache[Set[HalfMap]]
-  implicit val stringSetCache: Cache[Set[String]] = CaffeineCache[Set[String]]
+  implicit val halfMapSeqCache = CaffeineCache[Seq[HalfMap]]
+  implicit val halfMapSetCache = CaffeineCache[Set[HalfMap]]
+  implicit val stringSetCache = CaffeineCache[Set[String]]
+  implicit val stringMapCache = CaffeineCache[Map[String, Seq[String]]]
 
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRCONSO_" + sha256
@@ -141,12 +141,14 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
       getHalfMapsByCUIs(Set(cui)).map(_.label).toSet
     }
 
+  val halfMapCache = CaffeineCache[Seq[HalfMap]]
+
   /**
     * Return all half-maps for a set of concept identifiers.
     *
-    * @param source The source-asserted identifier.
-    * @param ids
-    * @return
+    * @param source The abbreviated source name (e.g. "AIR" or -- when versioned -- "AIR93").
+    * @param ids The source-asserted identifiers.
+    * @return A Seq of HalfMaps for the provided identifiers in the provided source.
     */
   def getHalfMapsForCodes(source: String, ids: Seq[String]): Seq[HalfMap] =
     memoizeSync(Some(2.seconds)) {
@@ -158,7 +160,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
         query.setString(1, source)
         val rs = query.executeQuery()
 
-        scribe.info(s"Loading halfmaps for $source")
+        scribe.debug(s"Loading halfmaps for $source")
         var halfMap = Seq[HalfMap]()
         var count = 0
         while (rs.next()) {
@@ -171,22 +173,37 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
           ) +: halfMap
           count += 1
           if (count % 100000 == 0) {
-            scribe.info(s"Loaded $count halfmaps.")
+            scribe.debug(s"Loaded $count halfmaps.")
           }
         }
 
         conn.close()
-        scribe.info(s"${halfMap.size} halfmaps loaded.")
+        scribe.debug(s"${halfMap.size} halfmaps loaded.")
+
+        // Load into the cache.
+        halfMap
+          .groupBy(hm => s"${hm.source}:${hm.code}")
+          .foreach({ case (id, hms) => halfMapCache.put(id)(hms) })
 
         halfMap
       } else {
-        scribe.info(s"Loading halfmaps for $source with identifiers: $ids.")
+        scribe.debug(s"Loading halfmaps for $source with identifiers: $ids.")
+
+        val cachedHalfMaps: Seq[HalfMap] =
+          ids.flatMap(id => halfMapCache.get(s"$source:$id")).flatten
+        val cachedIds: Set[String] = cachedHalfMaps.map(_.code).toSet
+        val uncachedIds = ids.filter(!cachedIds.contains(_))
+
+        if (cachedIds.nonEmpty)
+          scribe.info(
+            s"Halfmaps for ${cachedIds.size} identifiers have been previously cached; loading halfmaps from $source with identifiers: $uncachedIds."
+          )
 
         var halfMap = Seq[HalfMap]()
         var count = 0
 
-        val windowSize = (ids.size / 10) + 1
-        ids
+        val windowSize = (uncachedIds.size / 10) + 1
+        uncachedIds
           .sliding(windowSize, windowSize)
           .foreach(idGroup => {
             val indexedIds = idGroup.toIndexedSeq
@@ -212,13 +229,18 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
               count += 1
             }
 
-            scribe.info(s"Loaded $count halfmaps.")
+            scribe.debug(s"Loaded $count halfmaps.")
           })
 
         conn.close()
-        scribe.info(s"${halfMap.size} halfmaps loaded.")
+        scribe.debug(s"${halfMap.size} new halfmaps loaded.")
 
+        // Load into the cache.
         halfMap
+          .groupBy(hm => s"${hm.source}:${hm.code}")
+          .foreach({ case (id, hms) => halfMapCache.put(id)(hms) })
+
+        halfMap ++ cachedHalfMaps
       }
     }
 
