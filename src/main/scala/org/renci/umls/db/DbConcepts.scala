@@ -325,73 +325,76 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     }
 
   // Get the CUIs for given AUIs.
-  def getCUIsForAUI(auis: Seq[String]): Set[String] = {
-    if (auis.isEmpty) return Set()
+  def getCUIsForAUI(auis: Seq[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      if (auis.isEmpty) return Set()
 
-    val conn = db.createConnection()
-    val questions = auis.map(_ => "?").mkString(", ")
-    val query =
-      conn.prepareStatement(s"SELECT DISTINCT CUI FROM $tableName WHERE AUI IN ($questions)")
-    val indexedSeq = auis.toIndexedSeq
-    (1 to auis.size).foreach(index => {
-      query.setString(index, indexedSeq(index - 1))
-    })
+      val conn = db.createConnection()
+      val questions = auis.map(_ => "?").mkString(", ")
+      val query =
+        conn.prepareStatement(s"SELECT DISTINCT CUI FROM $tableName WHERE AUI IN ($questions)")
+      val indexedSeq = auis.toIndexedSeq
+      (1 to auis.size).foreach(index => {
+        query.setString(index, indexedSeq(index - 1))
+      })
 
-    var results = Seq[String]()
-    val rs = query.executeQuery()
-    while (rs.next()) {
-      results = rs.getString(1) +: results
+      var results = Seq[String]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        results = rs.getString(1) +: results
+      }
+      conn.close()
+
+      results.toSet
     }
-    conn.close()
 
-    results.toSet
-  }
+  def getAUIsForCUIs(cuis: Seq[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      if (cuis.isEmpty) return Set()
 
-  def getAUIsForCUIs(cuis: Seq[String]): Seq[String] = {
-    if (cuis.isEmpty) return Seq.empty
+      val conn = db.createConnection()
+      val questions = cuis.map(_ => "?").mkString(", ")
+      val query =
+        conn.prepareStatement(s"SELECT DISTINCT AUI FROM $tableName WHERE CUI IN ($questions)")
+      val indexedSeq = cuis.toIndexedSeq
+      (1 to cuis.size).foreach(index => {
+        query.setString(index, indexedSeq(index - 1))
+      })
 
-    val conn = db.createConnection()
-    val questions = cuis.map(_ => "?").mkString(", ")
-    val query =
-      conn.prepareStatement(s"SELECT DISTINCT AUI FROM $tableName WHERE CUI IN ($questions)")
-    val indexedSeq = cuis.toIndexedSeq
-    (1 to cuis.size).foreach(index => {
-      query.setString(index, indexedSeq(index - 1))
-    })
+      var results = Seq[String]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        results = rs.getString(1) +: results
+      }
+      conn.close()
 
-    var results = Seq[String]()
-    val rs = query.executeQuery()
-    while (rs.next()) {
-      results = rs.getString(1) +: results
+      results.toSet
     }
-    conn.close()
 
-    results
-  }
+  def getCUIsForCodes(source: String, ids: Seq[String]): Map[String, Seq[String]] =
+    memoizeSync(Some(2.seconds)) {
+      if (ids.isEmpty) return Map.empty
 
-  def getCUIsForCodes(source: String, ids: Seq[String]): Map[String, Seq[String]] = {
-    if (ids.isEmpty) return Map.empty
+      val conn = db.createConnection()
+      val questions = ids.map(_ => "?").mkString(", ")
+      val query = conn.prepareStatement(
+        s"SELECT DISTINCT CODE, CUI FROM $tableName WHERE SAB=? AND CODE IN ($questions)"
+      )
+      query.setString(1, source)
+      val indexedSeq = ids.toIndexedSeq
+      (1 to ids.size).foreach(index => {
+        query.setString(index + 1, indexedSeq(index - 1))
+      })
 
-    val conn = db.createConnection()
-    val questions = ids.map(_ => "?").mkString(", ")
-    val query = conn.prepareStatement(
-      s"SELECT DISTINCT CODE, CUI FROM $tableName WHERE SAB=? AND CODE IN ($questions)"
-    )
-    query.setString(1, source)
-    val indexedSeq = ids.toIndexedSeq
-    (1 to ids.size).foreach(index => {
-      query.setString(index + 1, indexedSeq(index - 1))
-    })
+      var results = Seq[(String, String)]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        results = (rs.getString(1), rs.getString(2)) +: results
+      }
+      conn.close()
 
-    var results = Seq[(String, String)]()
-    val rs = query.executeQuery()
-    while (rs.next()) {
-      results = (rs.getString(1), rs.getString(2)) +: results
+      results.groupMap(_._1)(_._2)
     }
-    conn.close()
-
-    results.groupMap(_._1)(_._2)
-  }
 }
 
 object DbConcepts {
