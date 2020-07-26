@@ -263,9 +263,9 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
   }
 
   // Look up maps by CUIs.
-  def getHalfMapsByCUIs(cuis: Set[String], toSource: String): Set[HalfMap] =
+  def getHalfMapsByCUIs(cuis: Set[String], toSource: String): Seq[HalfMap] =
     memoizeSync(Some(2.seconds)) {
-      if (cuis.isEmpty) return Set()
+      if (cuis.isEmpty) return Seq()
 
       val conn = db.createConnection()
       val indexedSeq = cuis.toIndexedSeq
@@ -291,7 +291,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
       }
       conn.close()
 
-      halfMaps.toSet
+      halfMaps
     }
 
   def getHalfMapsByCUIs(cuis: Set[String]): Seq[HalfMap] =
