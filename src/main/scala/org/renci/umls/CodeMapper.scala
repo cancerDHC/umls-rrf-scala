@@ -116,7 +116,7 @@ object CodeMapper extends App {
             // scribe.info(s"Checking $termCuis for parent AUI information.")
 
             val termAtomIds = concepts.getAUIsForCUIs(termCuis)
-            val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds)
+            val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds.toSet)
             val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
             val halfMaps =
               if (parentCUIs.isEmpty) Seq.empty
