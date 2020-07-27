@@ -31,9 +31,9 @@ class RRFHierarchy(file: File, filename: String = "MRHIER.RRF") extends RRFFile(
   }
   lazy val hierarchiesByAtomId = hierarchies.groupBy(_.AtomId)
 
-  def getParents(atomIds: Seq[String]): Set[String] =
+  def getParents(atomIds: Set[String]): Set[String] =
     atomIds.flatMap(hierarchiesByAtomId.getOrElse(_, Seq())).map(_.ParentAtomId).toSet
-  def getOnlyParent(atomIds: Seq[String]): String = {
+  def getOnlyParent(atomIds: Set[String]): String = {
     val set = getParents(atomIds)
     if (set.size < 1) throw new RuntimeException(s"No parents found for atom IDs: $atomIds")
     if (set.size > 1)
