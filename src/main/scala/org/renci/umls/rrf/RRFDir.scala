@@ -20,14 +20,19 @@ class RRFDir(dir: File, sqliteDbFile: File) {
   def getFile(filename: String): File = {
     val file = new File(dir, filename)
 
-    if (!file.exists()) throw new RuntimeException(s"Directory ${dir.getCanonicalPath} does not contain expected file $filename.")
+    if (!file.exists())
+      throw new RuntimeException(
+        s"Directory ${dir.getCanonicalPath} does not contain expected file $filename."
+      )
 
     file
   }
   def getRRFFile(filename: String): RRFFile = new RRFFile(getFile(filename), filename)
 
   /** Set up an SQLite database for us to use. */
-  lazy val sqliteDb:DriverManagerConnectionFactory = new DriverManagerConnectionFactory("jdbc:sqlite:" + sqliteDbFile.getPath)
+  lazy val sqliteDb: DriverManagerConnectionFactory = new DriverManagerConnectionFactory(
+    "jdbc:sqlite:" + sqliteDbFile.getPath
+  )
 
   /** Get the release information for this release (from release.dat) */
   lazy val releaseInfo: String = Source.fromFile(getFile("release.dat")).mkString

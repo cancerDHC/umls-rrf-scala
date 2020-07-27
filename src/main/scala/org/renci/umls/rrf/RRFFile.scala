@@ -10,8 +10,10 @@ import org.apache.commons.codec.digest.DigestUtils
   * Wraps a single RRF file.
   */
 class RRFFile(val file: File, val filename: String) {
+
   /** A list of all rows in this file. */
-  lazy val rows: Seq[IndexedSeq[String]] = Source.fromFile(file).getLines.map(_.split("\\|").toIndexedSeq).toSeq
+  lazy val rows: Seq[IndexedSeq[String]] =
+    Source.fromFile(file).getLines.map(_.split("\\|").toIndexedSeq).toSeq
 
   /** Count the number of rows in this file. */
   lazy val rowCount: Long = Source.fromFile(file).getLines.size
