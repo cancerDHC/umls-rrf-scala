@@ -2,6 +2,7 @@ package org.renci.umls
 
 import java.io.{File, FileOutputStream, PrintStream}
 
+import org.renci.umls.db.Relation
 import org.rogach.scallop._
 import org.rogach.scallop.exceptions._
 import org.renci.umls.rrf.RRFDir
@@ -48,6 +49,12 @@ object CodeMapper extends App {
 
     val outputFile: ScallopOption[File] = opt[File](descr = "Where to write the output file")
 
+    val parentBy: ScallopOption[String] = opt[String](
+      descr = "How to calculate the parent of the present term",
+      default = Some("MRREL"),
+      validate = (v: String) => Set("MRREL", "MRHIER").contains(v)
+    )
+
     verify()
   }
 
@@ -84,6 +91,7 @@ object CodeMapper extends App {
     // Both sourceFrom and sourceTo are set!
     if (conf.idFile.isEmpty) {
       val maps = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
+
       stream.println("fromSource\tfromCode\ttoSource\ttoCode\tnciMTConceptIds\tlabels")
       maps.foreach(map => {
         stream.println(
@@ -92,6 +100,9 @@ object CodeMapper extends App {
             s"${map.conceptIds.mkString(", ")}\t" +
             s"${map.labels.mkString("|")}"
         )
+
+        val relations = rrfDir.relationships.getRelationshipsByCUIs(map.conceptIds)
+        scribe.info(s"Relations identified: ${relations.map(_ + "\n - ")}")
       })
     } else {
       val ids = Source.fromFile(conf.idFile()).getLines.map(_.trim).toSeq
@@ -102,7 +113,7 @@ object CodeMapper extends App {
       val allTermCuis = concepts.getCUIsForCodes(conf.fromSource(), ids)
 
       stream.println(
-        "fromSource\tid\tcuis\tlabels\tcountDirect\tcountViaParent\ttoIds\ttoLabels\tparentCuis\tparentSource\tparentIds\tparentLabels"
+        "fromSource\tid\tcuis\tlabels\tcountDirect\tcountViaParent\ttoIds\ttoLabels\trelationshipTypes\tparentCuis\tparentSource\tparentIds\tparentLabels\tparentRelationshipTypes"
       )
 
       var count = 0
@@ -115,9 +126,26 @@ object CodeMapper extends App {
             val termCuis = allTermCuis.getOrElse(id, Seq.empty)
             // scribe.info(s"Checking $termCuis for parent AUI information.")
 
-            val termAtomIds = concepts.getAUIsForCUIs(termCuis)
-            val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds)
-            val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
+            val parentBy = conf.parentBy.getOrElse("")
+            val parentCUIs: Set[String] = if (parentBy.equals("MRHIER")) {
+              val termAtomIds = concepts.getAUIsForCUIs(termCuis)
+              val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds)
+              concepts.getCUIsForAUI(parentAtomIds.toSeq)
+            } else if (parentBy.equals("MRREL")) {
+              val rels = rrfDir.relationships.getRelationshipsByCUIs(termCuis.toSet)
+              rels
+                .filter(r => r.rel.equals("PAR")) // Only look for PARent relations.
+                .filter(
+                  r => !r.cui1.equals(r.cui2) && !termCuis.contains(r.cui2)
+                ) // Make sure we're not accidentally finding relations to ourselves.
+                .map(_.cui2)
+                .toSet
+            } else {
+              throw new RuntimeException(s"Unknown --parent-by provided: ${parentBy}.")
+            }
+
+            scribe.info(s"Found ${parentCUIs.size} parent CUIs for terms ${termCuis}")
+
             val halfMaps =
               if (parentCUIs.isEmpty) Seq.empty
               else concepts.getMapsByCUIs(parentCUIs.toSeq, conf.toSource())
@@ -135,15 +163,69 @@ object CodeMapper extends App {
           }
 
         val halfMaps = halfMapByCode.getOrElse(id, Seq())
+        val termCUIs = halfMaps.map(_.cui).toSet
+
+        /**
+          * Summarizes relationships in this format:
+          *   RO:isa (cui1, cui2, cui3, ... 45 others), CHD:isa (cui1, cui2, cui3, ... 43)
+          *
+          * @param rels
+          * @return
+          */
+        def summarizeRelationships(cuis: Set[String], rels: Seq[Relation]): String = {
+          rels
+            // Let's ignore self-referential relations.
+            .filter(r => r.cui1 != r.cui2 && !cuis.contains(r.cui2))
+            .groupBy(r => if (r.rela.isEmpty) r.rel else s"${r.rel}:${r.rela}")
+            .transform((relName, rs) => {
+              // If there are fewer than four examples, list all three.
+              val examples =
+                if (rs.size < 4) rs.map(r => s"${r.cui2} + [${r.label2}]").mkString(", ")
+                else
+                  s"${rs.take(3).map(r => s"${r.cui2} [${r.label2}]").mkString(", ")}...${rs.size - 3} other"
+
+              (rs.size, s"${relName} (${examples})")
+            })
+            .values
+            .toSeq
+            .sortBy(_._1)(Ordering.Int.reverse)
+            .map(_._2)
+            .mkString(", ")
+        }
+
+        lazy val relsFromTermStr =
+          if (maps.nonEmpty) ""
+          else {
+            val relationshipsFromTerm = rrfDir.relationships.getRelationshipsByCUIs(termCUIs)
+            scribe.info(
+              s"Found relationships for ${termCUIs
+                .mkString("|")} [${halfMaps.map(_.label).headOption.getOrElse("")}]: ${summarizeRelationships(termCUIs, relationshipsFromTerm)}"
+            )
+            summarizeRelationships(termCUIs, relationshipsFromTerm)
+          }
+
+        lazy val relsFromParentStr =
+          if (maps.nonEmpty || parentHalfMaps.isEmpty) ""
+          else {
+            val parentCUIs = parentHalfMaps.map(_.cui).toSet
+            val relationshipsFromParent = rrfDir.relationships.getRelationshipsByCUIs(parentCUIs)
+            scribe.info(
+              s"Found relationships for parent of ${termCUIs
+                .mkString("|")} [${halfMaps.map(_.label).headOption.getOrElse("")}]: ${summarizeRelationships(parentCUIs, relationshipsFromParent)}"
+            )
+            summarizeRelationships(parentCUIs, relationshipsFromParent)
+          }
 
         stream.println(
-          s"${conf.fromSource()}\t$id\t${halfMaps.map(_.cui).toSet.mkString("|")}\t${halfMaps
+          s"${conf.fromSource()}\t$id\t${termCUIs.mkString("|")}\t${halfMaps
             .map(_.label)
             .toSet
             .mkString("|")}\t${maps.size}\t${parentHalfMaps.size}"
             + s"\t${maps.map(m => m.toSource + ":" + m.toCode).mkString("|")}"
             + s"\t${maps.map(_.labels.mkString(";")).mkString("|")}"
+          //+ s"\t${relsFromTermStr}"
             + s"$parentStr"
+          //+ s"\t${relsFromParentStr}"
         )
 
         count += 1

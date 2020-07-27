@@ -3,7 +3,7 @@ package org.renci.umls.rrf
 import java.io.File
 
 import org.apache.commons.dbcp2.DriverManagerConnectionFactory
-import org.renci.umls.db.{DbConcepts, DbHierarchy}
+import org.renci.umls.db.{DbConcepts, DbHierarchy, DbRelationships}
 
 import scala.io.Source
 
@@ -48,4 +48,8 @@ class RRFDir(dir: File, sqliteDbFile: File) {
 
   /** Loads MRCONSO.RRF files and makes them available. */
   lazy val concepts: DbConcepts = DbConcepts.fromDatabase(sqliteDb, getRRFFile("MRCONSO.RRF"))
+
+  /** Loads MRREL.RRF files and makes them available. */
+  lazy val relationships: DbRelationships =
+    DbRelationships.fromDatabase(sqliteDb, getRRFFile("MRREL.RRF"), concepts)
 }
