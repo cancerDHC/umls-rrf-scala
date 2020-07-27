@@ -6,7 +6,6 @@ import org.apache.commons.dbcp2.ConnectionFactory
 
 import scala.util.Try
 import org.renci.umls.rrf._
-import scalacache._
 import scalacache.caffeine._
 import scalacache.memoization._
 import scalacache.modes.sync._
@@ -17,7 +16,10 @@ import scala.io.Source
 /** A wrapper for RRFConcepts that uses SQLite */
 class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     extends RRFConcepts(file, filename) {
-  implicit val halfMapCache: Cache[Seq[HalfMap]] = CaffeineCache[Seq[HalfMap]]
+  implicit val halfMapSeqCache = CaffeineCache[Seq[HalfMap]]
+  implicit val halfMapSetCache = CaffeineCache[Set[HalfMap]]
+  implicit val stringSetCache = CaffeineCache[Set[String]]
+  implicit val stringMapCache = CaffeineCache[Map[String, Seq[String]]]
 
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
   val tableName: String = "MRCONSO_" + sha256
@@ -109,9 +111,45 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     results
   }
 
-  // We use the CUIs to map everything from the fromSource to the toSource.
+  /**
+    * A "half map" maps a NCImt concept identifier to an identifier from another source.
+    * Details are available at https://www.ncbi.nlm.nih.gov/books/NBK9685/#ch03.sec3.3.4
+    *
+    * @param cui The NCImt concept identifier.
+    * @param aui The NCImt atom identifier (https://www.ncbi.nlm.nih.gov/books/NBK9684/#ch02.sec2.3.3).
+    * @param source The abbreviated source name (e.g. "AIR" or -- when versioned -- "AIR93").
+    * @param code The source-asserted identifier.
+    * @param label The label used for this concept.
+    */
   case class HalfMap(cui: String, aui: String, source: String, code: String, label: String)
 
+  /** Return all known labels for a set of concepts */
+  def getLabelsForCodes(source: String, ids: Seq[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      ids.flatMap(getLabelsForCode(source, _)).toSet
+    }
+
+  /** Return all known labels for a single concept */
+  def getLabelsForCode(source: String, id: String): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      getHalfMapsForCodes(source, Seq(id)).map(_.label).toSet
+    }
+
+  /** Return all known labels for a single CUI */
+  def getLabelsForCUI(cui: String): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      getHalfMapsByCUIs(Set(cui)).map(_.label).toSet
+    }
+
+  val halfMapCache = CaffeineCache[Seq[HalfMap]]
+
+  /**
+    * Return all half-maps for a set of concept identifiers.
+    *
+    * @param source The abbreviated source name (e.g. "AIR" or -- when versioned -- "AIR93").
+    * @param ids The source-asserted identifiers.
+    * @return A Seq of HalfMaps for the provided identifiers in the provided source.
+    */
   def getHalfMapsForCodes(source: String, ids: Seq[String]): Seq[HalfMap] =
     memoizeSync(Some(2.seconds)) {
       // Retrieve all the fromIds.
@@ -122,7 +160,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
         query.setString(1, source)
         val rs = query.executeQuery()
 
-        scribe.info(s"Loading halfmaps for $source")
+        scribe.debug(s"Loading halfmaps for $source")
         var halfMap = Seq[HalfMap]()
         var count = 0
         while (rs.next()) {
@@ -135,22 +173,37 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
           ) +: halfMap
           count += 1
           if (count % 100000 == 0) {
-            scribe.info(s"Loaded $count halfmaps.")
+            scribe.debug(s"Loaded $count halfmaps.")
           }
         }
 
         conn.close()
-        scribe.info(s"${halfMap.size} halfmaps loaded.")
+        scribe.debug(s"${halfMap.size} halfmaps loaded.")
+
+        // Load into the cache.
+        halfMap
+          .groupBy(hm => s"${hm.source}:${hm.code}")
+          .foreach({ case (id, hms) => halfMapCache.put(id)(hms) })
 
         halfMap
       } else {
-        scribe.info(s"Loading halfmaps for $source with identifiers: $ids.")
+        scribe.debug(s"Loading halfmaps for $source with identifiers: $ids.")
+
+        val cachedHalfMaps: Seq[HalfMap] =
+          ids.flatMap(id => halfMapCache.get(s"$source:$id")).flatten
+        val cachedIds: Set[String] = cachedHalfMaps.map(_.code).toSet
+        val uncachedIds = ids.filter(!cachedIds.contains(_))
+
+        if (cachedIds.nonEmpty)
+          scribe.info(
+            s"Halfmaps for ${cachedIds.size} identifiers have been previously cached; loading halfmaps from $source with identifiers: $uncachedIds."
+          )
 
         var halfMap = Seq[HalfMap]()
         var count = 0
 
-        val windowSize = (ids.size / 10) + 1
-        ids
+        val windowSize = (uncachedIds.size / 10) + 1
+        uncachedIds
           .sliding(windowSize, windowSize)
           .foreach(idGroup => {
             val indexedIds = idGroup.toIndexedSeq
@@ -176,13 +229,18 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
               count += 1
             }
 
-            scribe.info(s"Loaded $count halfmaps.")
+            scribe.debug(s"Loaded $count halfmaps.")
           })
 
         conn.close()
-        scribe.info(s"${halfMap.size} halfmaps loaded.")
+        scribe.debug(s"${halfMap.size} new halfmaps loaded.")
 
+        // Load into the cache.
         halfMap
+          .groupBy(hm => s"${hm.source}:${hm.code}")
+          .foreach({ case (id, hms) => halfMapCache.put(id)(hms) })
+
+        halfMap ++ cachedHalfMaps
       }
     }
 
@@ -227,18 +285,17 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
   }
 
   // Look up maps by CUIs.
-  // TODO: we might want to be able to call this without source.
-  def getMapsByCUIs(cuis: Seq[String], toSource: String): Seq[HalfMap] =
+  def getHalfMapsByCUIs(cuis: Set[String], toSource: String): Seq[HalfMap] =
     memoizeSync(Some(2.seconds)) {
       if (cuis.isEmpty) return Seq()
 
       val conn = db.createConnection()
-      val questions = cuis.map(_ => "?").mkString(", ")
+      val indexedSeq = cuis.toIndexedSeq
+      val questions = indexedSeq.map(_ => "?").mkString(", ")
       val query = conn.prepareStatement(
         s"SELECT DISTINCT CUI, AUI, SAB, CODE, STR FROM $tableName WHERE SAB=? AND CUI IN ($questions)"
       )
       query.setString(1, toSource)
-      val indexedSeq = cuis.toIndexedSeq
       (1 to cuis.size).foreach(index => {
         query.setString(index + 1, indexedSeq(index - 1))
       })
@@ -259,74 +316,107 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
       halfMaps
     }
 
+  def getHalfMapsByCUIs(cuis: Set[String]): Seq[HalfMap] =
+    memoizeSync(Some(2.seconds)) {
+      if (cuis.isEmpty) return Seq()
+
+      val conn = db.createConnection()
+      val indexedSeq = cuis.toIndexedSeq
+      val questions = indexedSeq.map(_ => "?").mkString(", ")
+      val query = conn.prepareStatement(
+        s"SELECT DISTINCT CUI, AUI, SAB, CODE, STR FROM $tableName WHERE CUI IN ($questions)"
+      )
+      (1 to cuis.size).foreach(index => {
+        query.setString(index, indexedSeq(index - 1))
+      })
+
+      var halfMaps = Seq[HalfMap]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        halfMaps = HalfMap(
+          rs.getString(1),
+          rs.getString(2),
+          rs.getString(3),
+          rs.getString(4),
+          rs.getString(5)
+        ) +: halfMaps
+      }
+      conn.close()
+
+      halfMaps
+    }
+
   // Get the CUIs for given AUIs.
-  def getCUIsForAUI(auis: Seq[String]): Set[String] = {
-    if (auis.isEmpty) return Set()
+  def getCUIsForAUI(auis: Seq[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      if (auis.isEmpty) return Set()
 
-    val conn = db.createConnection()
-    val questions = auis.map(_ => "?").mkString(", ")
-    val query =
-      conn.prepareStatement(s"SELECT DISTINCT CUI FROM $tableName WHERE AUI IN ($questions)")
-    val indexedSeq = auis.toIndexedSeq
-    (1 to auis.size).foreach(index => {
-      query.setString(index, indexedSeq(index - 1))
-    })
+      val conn = db.createConnection()
+      val questions = auis.map(_ => "?").mkString(", ")
+      val query =
+        conn.prepareStatement(s"SELECT DISTINCT CUI FROM $tableName WHERE AUI IN ($questions)")
+      val indexedSeq = auis.toIndexedSeq
+      (1 to auis.size).foreach(index => {
+        query.setString(index, indexedSeq(index - 1))
+      })
 
-    var results = Seq[String]()
-    val rs = query.executeQuery()
-    while (rs.next()) {
-      results = rs.getString(1) +: results
+      var results = Seq[String]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        results = rs.getString(1) +: results
+      }
+      conn.close()
+
+      results.toSet
     }
-    conn.close()
 
-    results.toSet
-  }
+  def getAUIsForCUIs(cuis: Seq[String]): Set[String] =
+    memoizeSync(Some(2.seconds)) {
+      if (cuis.isEmpty) return Set()
 
-  def getAUIsForCUIs(cuis: Seq[String]): Seq[String] = {
-    if (cuis.isEmpty) return Seq.empty
+      val conn = db.createConnection()
+      val questions = cuis.map(_ => "?").mkString(", ")
+      val query =
+        conn.prepareStatement(s"SELECT DISTINCT AUI FROM $tableName WHERE CUI IN ($questions)")
+      val indexedSeq = cuis.toIndexedSeq
+      (1 to cuis.size).foreach(index => {
+        query.setString(index, indexedSeq(index - 1))
+      })
 
-    val conn = db.createConnection()
-    val questions = cuis.map(_ => "?").mkString(", ")
-    val query =
-      conn.prepareStatement(s"SELECT DISTINCT AUI FROM $tableName WHERE CUI IN ($questions)")
-    val indexedSeq = cuis.toIndexedSeq
-    (1 to cuis.size).foreach(index => {
-      query.setString(index, indexedSeq(index - 1))
-    })
+      var results = Seq[String]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        results = rs.getString(1) +: results
+      }
+      conn.close()
 
-    var results = Seq[String]()
-    val rs = query.executeQuery()
-    while (rs.next()) {
-      results = rs.getString(1) +: results
+      results.toSet
     }
-    conn.close()
 
-    results
-  }
+  def getCUIsForCodes(source: String, ids: Seq[String]): Map[String, Seq[String]] =
+    memoizeSync(Some(2.seconds)) {
+      if (ids.isEmpty) return Map.empty
 
-  def getCUIsForCodes(source: String, ids: Seq[String]): Map[String, Seq[String]] = {
-    if (ids.isEmpty) return Map.empty
+      val conn = db.createConnection()
+      val questions = ids.map(_ => "?").mkString(", ")
+      val query = conn.prepareStatement(
+        s"SELECT DISTINCT CODE, CUI FROM $tableName WHERE SAB=? AND CODE IN ($questions)"
+      )
+      query.setString(1, source)
+      val indexedSeq = ids.toIndexedSeq
+      (1 to ids.size).foreach(index => {
+        query.setString(index + 1, indexedSeq(index - 1))
+      })
 
-    val conn = db.createConnection()
-    val questions = ids.map(_ => "?").mkString(", ")
-    val query = conn.prepareStatement(
-      s"SELECT DISTINCT CODE, CUI FROM $tableName WHERE SAB=? AND CODE IN ($questions)"
-    )
-    query.setString(1, source)
-    val indexedSeq = ids.toIndexedSeq
-    (1 to ids.size).foreach(index => {
-      query.setString(index + 1, indexedSeq(index - 1))
-    })
+      var results = Seq[(String, String)]()
+      val rs = query.executeQuery()
+      while (rs.next()) {
+        results = (rs.getString(1), rs.getString(2)) +: results
+      }
+      conn.close()
 
-    var results = Seq[(String, String)]()
-    val rs = query.executeQuery()
-    while (rs.next()) {
-      results = (rs.getString(1), rs.getString(2)) +: results
+      results.groupMap(_._1)(_._2)
     }
-    conn.close()
-
-    results.groupMap(_._1)(_._2)
-  }
 }
 
 object DbConcepts {

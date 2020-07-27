@@ -6,6 +6,7 @@ import org.rogach.scallop._
 import org.rogach.scallop.exceptions._
 import org.renci.umls.rrf.RRFDir
 
+import scala.concurrent.duration.Duration
 import scala.io.Source
 
 /**
@@ -57,6 +58,7 @@ object CodeMapper extends App {
   // Read RRF directory.
   val rrfDir = new RRFDir(conf.rrfDir(), conf.sqliteDb())
   scribe.info(s"Loaded directory for release: ${rrfDir.releaseInfo}")
+  scribe.info(s"UMLS release name: ${rrfDir.releaseName}.")
   scribe.info(s"Using SQLite backend: ${rrfDir.sqliteDb}")
 
   val concepts = rrfDir.concepts
@@ -74,8 +76,6 @@ object CodeMapper extends App {
     // We know sourceFrom is set.
     scribe.error(s"--source-to is empty, although --source-from is set to '${conf.fromSource()}'")
   } else {
-    // Do we need to filter first?
-
     // Get ready to write output!
     val stream =
       if (conf.outputFile.isEmpty) System.out
@@ -84,90 +84,112 @@ object CodeMapper extends App {
     // Both sourceFrom and sourceTo are set!
     if (conf.idFile.isEmpty) {
       val maps = concepts.getMap(conf.fromSource(), Seq.empty, conf.toSource(), Seq.empty)
-      stream.println("fromSource\tfromCode\ttoSource\ttoCode\tnciMTConceptIds\tlabels")
+      stream.println(
+        "subject_id\tsubject_label\tpredicate_id\tpredicate_label\tobject_id\tobject_label\tmatch_type\tmapping_set_id\tmapping_set_version\tcomment"
+      )
       maps.foreach(map => {
         stream.println(
-          s"${map.fromSource}\t${map.fromCode}\t" +
-            s"${map.toSource}\t${map.toCode}\t" +
-            s"${map.conceptIds.mkString(", ")}\t" +
-            s"${map.labels.mkString("|")}"
+          s"${map.fromSource}:${map.fromCode}\t${concepts.getLabelsForCode(map.fromSource, map.fromCode).mkString("|")}\t" +
+            s"skos:exactMatch\tThe subject and the object can, with a high degree of confidence, be used interchangeably across a wide range of information retrieval applications.\t" +
+            s"${map.toSource}:${map.toCode}\t${concepts.getLabelsForCode(map.toSource, map.toCode).mkString("|")}\t" +
+            s"http://purl.org/sssom/type/Complex\t" +
+            s"https://ncim.nci.nih.gov/ncimbrowser/\t${rrfDir.releaseName}\t" +
+            s"Both subject and object are mapped to NCI Metathesaurus CUIs: ${map.conceptIds.mkString("|")}"
         )
       })
     } else {
       val ids = Source.fromFile(conf.idFile()).getLines.map(_.trim).toSeq
       scribe.info(s"Filtering to ${ids.size} IDs from ${conf.idFile()}.")
 
-      val halfMapByCode = concepts.getHalfMapsForCodes(conf.fromSource(), ids).groupBy(_.code)
       val map = concepts.getMap(conf.fromSource(), ids, conf.toSource(), Seq.empty)
       val allTermCuis = concepts.getCUIsForCodes(conf.fromSource(), ids)
 
       stream.println(
-        "fromSource\tid\tcuis\tlabels\tcountDirect\tcountViaParent\ttoIds\ttoLabels\tparentCuis\tparentSource\tparentIds\tparentLabels"
+        "subject_id\tsubject_label\tpredicate_id\tpredicate_label\tobject_id\tobject_label\tmatch_type\tmapping_set_id\tmapping_set_version\tcomment"
       )
 
       var count = 0
+      var countNoMatch = 0
+      var countMatchDirect = 0
+      var countMatchViaParent = 0
+
+      val startTime = System.nanoTime()
+
       val mapByFromId = map.groupBy(_.fromCode)
-      val matched = ids.map(id => {
-        val maps = mapByFromId.getOrElse(id, Seq())
-        val (parentStr, parentHalfMaps) =
-          if (maps.nonEmpty) ("", Seq.empty)
-          else {
-            val termCuis = allTermCuis.getOrElse(id, Seq.empty)
-            // scribe.info(s"Checking $termCuis for parent AUI information.")
-
-            val termAtomIds = concepts.getAUIsForCUIs(termCuis)
-            val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds.toSet)
-            val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
-            val halfMaps =
-              if (parentCUIs.isEmpty) Seq.empty
-              else concepts.getMapsByCUIs(parentCUIs.toSeq, conf.toSource())
-
-            val cuis = halfMaps.map(_.cui).toSet
-            val sources = halfMaps.map(_.source).toSet
-            val codes = halfMaps.map(_.code).toSet
-            val labels = halfMaps.map(_.label).toSet
-
-            (
-              s"\t${cuis.mkString("|")}\t${sources.mkString("|")}\t${codes.mkString("|")}\t${labels
-                .mkString("|")}",
-              halfMaps
-            )
-          }
-
-        val halfMaps = halfMapByCode.getOrElse(id, Seq())
-
-        stream.println(
-          s"${conf.fromSource()}\t$id\t${halfMaps.map(_.cui).toSet.mkString("|")}\t${halfMaps
-            .map(_.label)
-            .toSet
-            .mkString("|")}\t${maps.size}\t${parentHalfMaps.size}"
-            + s"\t${maps.map(m => m.toSource + ":" + m.toCode).mkString("|")}"
-            + s"\t${maps.map(_.labels.mkString(";")).mkString("|")}"
-            + s"$parentStr"
-        )
-
+      ids.foreach(id => {
         count += 1
+
         if (count % 100 == 0) {
-          val percentage = count.toFloat / ids.size * 100
-          scribe.info(f"Processed $count out of ${ids.size} IDs ($percentage%.2f%%)")
+          scribe.info(
+            f"Processing ID ${conf.fromSource()}:$id ($count out of ${ids.size}: ${count / ids.size.toFloat * 100}%.2f%%)"
+          )
         }
 
-        (maps, parentHalfMaps)
+        val maps = mapByFromId.getOrElse(id, Seq())
+        if (maps.nonEmpty) {
+          countMatchDirect += 1
+          maps.foreach(map => {
+            stream.println(
+              s"${conf.fromSource()}:$id\t${concepts.getLabelsForCode(conf.fromSource(), id).mkString("|")}\t" +
+                s"skos:exactMatch\tThe subject and the object can, with a high degree of confidence, be used interchangeably across a wide range of information retrieval applications.\t" +
+                s"${map.toSource}:${map.toCode}\t${concepts.getLabelsForCode(map.toSource, map.toCode).mkString("|")}\t" +
+                s"http://purl.org/sssom/type/Complex\t" +
+                s"https://ncim.nci.nih.gov/ncimbrowser/\t${rrfDir.releaseName}\t" +
+                s"Both subject and object are mapped to NCI Metathesaurus CUIs: ${map.conceptIds.mkString("|")}"
+            )
+          })
+        } else {
+          val termCuis = allTermCuis.getOrElse(id, Seq.empty)
+          // scribe.info(s"Checking $termCuis for parent AUI information.")
+
+          val termAtomIds = concepts.getAUIsForCUIs(termCuis)
+          val parentAtomIds = rrfDir.hierarchy.getParents(termAtomIds.toSet)
+          val parentCUIs = concepts.getCUIsForAUI(parentAtomIds.toSeq)
+          if (parentCUIs.isEmpty) {
+            stream.println(
+              s"${conf.fromSource()}:$id\t${concepts.getLabelsForCode(conf.fromSource(), id).mkString("|")}"
+            )
+
+            countNoMatch += 1
+          } else {
+            val halfMaps = concepts.getHalfMapsByCUIs(parentCUIs.toSet, conf.toSource())
+
+            if (halfMaps.nonEmpty) {
+              val sources: Set[(String, String, String)] =
+                halfMaps.map(hm => (hm.source, hm.code, hm.cui)).toSet
+
+              sources.foreach({
+                case (toSource, toId, toCui) =>
+                  stream.println(
+                    s"${conf.fromSource()}:$id\t${concepts.getLabelsForCode(conf.fromSource(), id).mkString("|")}\t" +
+                      s"skos:narrowMatch\tThe subject is taxonomically narrower than the object.\t" +
+                      s"$toSource:$toId\t${concepts.getLabelsForCode(toSource, toId).mkString("|")}\t" +
+                      s"http://purl.org/sssom/type/Complex\t" +
+                      s"https://ncim.nci.nih.gov/ncimbrowser/\t${rrfDir.releaseName}\t" +
+                      s"The subject (CUI ${termCuis.toSet
+                        .mkString("|")}) has a parent term (CUI ${parentCUIs.toSet.mkString("|")}) " +
+                      s"that can be mapped to CUIs in the output source (CUI $toCui)"
+                  )
+              })
+
+              countMatchViaParent += 1
+            } else {
+              stream.println(
+                s"${conf.fromSource()}:$id\t${concepts.getLabelsForCode(conf.fromSource(), id).mkString("|")}"
+              )
+
+              countNoMatch += 1
+            }
+          }
+        }
       })
 
-      val matchedTerm = matched.filter(_._1.nonEmpty).flatMap(_._1)
-      val matchedParent = matched.filter(_._2.nonEmpty).flatMap(_._2)
-      val matchedTotal = matched.filter(m => m._1.nonEmpty || m._2.nonEmpty)
-
-      val percentageTerm = (matchedTerm.size.toFloat / ids.size) * 100
-      val percentageParent = (matchedParent.size.toFloat / ids.size) * 100
-      val percentageTotal = (matchedTotal.size.toFloat / ids.size) * 100
-      scribe.info(f"Matched ${matchedTerm.size} IDs out of ${ids.size} ($percentageTerm%.2f%%)")
+      val duration = Duration.fromNanos(System.nanoTime() - startTime)
       scribe.info(
-        f"Matched a further ${matchedParent.size} IDs via the parent term ($percentageParent%.2f%%)"
+        f"Processed $count IDs in ${duration.toMinutes} mins (${duration.toSeconds / count.toFloat}%.2f seconds per ID)"
       )
       scribe.info(
-        f"Total coverage: ${matchedTotal.size} IDs out of ${ids.size} ($percentageTotal%.2f%%)"
+        f"Of these, $countMatchDirect (${countMatchDirect / count.toFloat * 100}%.2f%%) were matched directly, and $countMatchViaParent (${countMatchViaParent / count.toFloat * 100}%.2f%%) were matched via parent."
       )
     }
 

@@ -36,6 +36,11 @@ class RRFDir(dir: File, sqliteDbFile: File) {
 
   /** Get the release information for this release (from release.dat) */
   lazy val releaseInfo: String = Source.fromFile(getFile("release.dat")).mkString
+  val umlsVersionRegex = "(?m)^umls.release.name=(.*)\\s*$".r.unanchored
+  lazy val releaseName: String = releaseInfo match {
+    case umlsVersionRegex(version) => version
+    case _                         => "unknown"
+  }
 
   /** Loads MRCOLS.RRF files and makes them available. */
   lazy val cols: RRFCols = RRFCols.fromRRF(getRRFFile("MRCOLS.RRF"))
