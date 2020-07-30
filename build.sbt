@@ -40,6 +40,9 @@ libraryDependencies ++= {
     // Command line argument parsing.
     "org.rogach"                  %% "scallop"                % "3.3.2",
 
+    // Add support for CSV.
+    "com.github.tototoshi"        %% "scala-csv"              % "1.3.6",
+
     // Import Apache Jena to read JSON-LD.
     // "org.apache.jena"             % "jena-core"               % "3.14.0",
 
