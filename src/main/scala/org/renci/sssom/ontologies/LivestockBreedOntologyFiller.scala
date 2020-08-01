@@ -16,13 +16,13 @@ class LivestockBreedOntologyFiller extends SSSOMFiller {
     *
     * @return None if this row could not be filled, and Some[Row] if it can.
     */
-  override def fillRow(row: Row, headers: List[String]): Option[SSSOMFiller.Result] = {
+  override def fillRow(row: Row, headers: List[String]): Option[Seq[SSSOMFiller.Result]] = {
     val subjectId = row.getOrElse("subject_id", "(none)")
     val subjectLabels = row.getOrElse("subject_label", "").split("\\s*\\|\\s*").toSet
 
     val regex = "^(.*) cattle breed$".r
     subjectLabels.to(LazyList).flatMap({
-      case regex(breedName) => Some(SSSOMFiller.Result(row, row, this))
+      case regex(breedName) => Some(Seq(SSSOMFiller.Result(row, row, this)))
     }).headOption
   }
 }

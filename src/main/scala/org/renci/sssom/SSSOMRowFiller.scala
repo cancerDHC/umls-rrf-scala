@@ -12,7 +12,7 @@ abstract class SSSOMFiller {
     * Fill in the input row. The list of all headers is also provided.
     * @return None if this row could not be filled, and Some[Row] if it can.
     */
-  def fillRow(row: SSSOMFiller.Row, headers: List[String]): Option[SSSOMFiller.Result]
+  def fillRow(row: SSSOMFiller.Row, headers: List[String]): Option[Seq[SSSOMFiller.Result]]
 }
 
 object SSSOMFiller {

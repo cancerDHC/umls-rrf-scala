@@ -1,9 +1,10 @@
 package org.renci.sssom
 
 import java.io.{File, FileWriter, OutputStreamWriter, PrintWriter}
+import java.net.URL
 
 import com.github.tototoshi.csv.{CSVReader, CSVWriter, TSVFormat}
-import org.renci.sssom.ontologies.LivestockBreedOntologyFiller
+import org.renci.sssom.ontologies.{LivestockBreedOntologyFiller, OntologyFiller}
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 
@@ -33,8 +34,8 @@ object Filler extends App {
     val inputFile: ScallopOption[File] = opt[File](descr = "The SSSOM file to fill in")
     val outputFile: ScallopOption[File] = opt[File](descr = "The output file (in SSSOM format)")
 
-    val fromOntology: ScallopOption[List[String]] = opt[List[String]](
-      descr = "A list of ontologies to search for terms",
+    val fromOntology: ScallopOption[List[File]] = opt[List[File]](
+      descr = "A list of ontologies (as local RDF files) to search for terms",
       short = 'o'
     )
 
@@ -56,9 +57,9 @@ object Filler extends App {
 
   // Build a list of SSSOMRowFillers that we need to apply here.
   val rowFillers: Seq[SSSOMFiller] = (
-    (if (conf.fillLivestockBreedOntology()) Some(new LivestockBreedOntologyFiller()) else None)
-    :: Nil
-    ).flatten
+    (if (conf.fillLivestockBreedOntology()) Some(new LivestockBreedOntologyFiller()) else None) +:
+    conf.fromOntology().map(file => Some(OntologyFiller(file)))
+  ).flatten
   scribe.info(s"Active row fillers: ${rowFillers.mkString(", ")}")
 
   if (rowFillers.isEmpty) {
@@ -72,7 +73,7 @@ object Filler extends App {
 
   val writer = CSVWriter.open(outputWriter)(new TSVFormat {})
   writer.writeRow(headers)
-  rows.map(row => {
+  rows.flatMap(row => {
     // Should we fill in this row?
     val subjectId = row.getOrElse("subject_id", "(none)")
     val predicateId = row.getOrElse("predicate_id", "")
@@ -81,14 +82,14 @@ object Filler extends App {
       val optMatchResult = rowFillers.to(LazyList).flatMap(_.fillRow(row, headers)).headOption
       if (optMatchResult.isEmpty) {
         scribe.info(s"Could not fill subject ID $subjectId: no fillers matched")
-        row
+        Seq(row)
       } else {
         val result = optMatchResult.head
-
-        scribe.info(s"Filled subject ID $subjectId with ${result.filler}")
-        result.result
+        val rows = result.map(_.result)
+        scribe.info(s"Filled subject ID $subjectId with ${rows}")
+        rows
       }
-    } else row
+    } else Seq(row)
   }).foreach(row => {
     // Write out each row in the correct order.
     writer.writeRow(headers.map(header => row.getOrElse(header, "")))
