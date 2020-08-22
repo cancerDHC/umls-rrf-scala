@@ -35,7 +35,8 @@ object Filler extends App {
 
     val fromOntology: ScallopOption[List[File]] = opt[List[File]](
       descr = "A list of ontologies (as local RDF files) to search for terms",
-      short = 'o'
+      short = 'o',
+      default = Some(List[File]())
     )
 
     val fillLivestockBreedOntology: ScallopOption[Boolean] = opt[Boolean](
@@ -55,7 +56,7 @@ object Filler extends App {
   val outputWriter = if(conf.outputFile.isSupplied) new PrintWriter(new FileWriter(conf.outputFile())) else new OutputStreamWriter(System.out)
 
   // Build a list of SSSOMRowFillers that we need to apply here.
-  val rowFillers: Seq[SSSOMFiller] = (
+  val rowFillers: Seq[OntologyFiller] = (
     (if (conf.fillLivestockBreedOntology()) Some(new LivestockBreedOntologyFiller()) else None) +:
     conf.fromOntology().map(file => Some(OntologyFiller(file)))
   ).flatten
