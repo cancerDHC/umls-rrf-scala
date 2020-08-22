@@ -1,12 +1,11 @@
 package org.renci.sssom
 
 import java.io.{File, FileWriter, OutputStreamWriter, PrintWriter}
-import java.net.URL
 
 import com.github.tototoshi.csv.{CSVReader, CSVWriter, TSVFormat}
 import org.renci.sssom.ontologies.{LivestockBreedOntologyFiller, OntologyFiller}
-import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
+import org.rogach.scallop.{ScallopConf, ScallopOption}
 
 import scala.io.Source
 
@@ -71,6 +70,11 @@ object Filler extends App {
   val reader = CSVReader.open(inputSource)(new TSVFormat {})
   val (headers, rows) = reader.allWithOrderedHeaders()
 
+  // Counters
+  var countExistingTerm = 0
+  var countNoMatch = 0
+  var countMatch = 0
+
   val writer = CSVWriter.open(outputWriter)(new TSVFormat {})
   writer.writeRow(headers)
   rows.flatMap(row => {
@@ -78,21 +82,33 @@ object Filler extends App {
     val subjectId = row.getOrElse("subject_id", "(none)")
     val predicateId = row.getOrElse("predicate_id", "")
     if(predicateId.isEmpty || (!conf.fillPredicateId.isSupplied || predicateId == conf.fillPredicateId())) {
-      scribe.info(s"Looking for a match for ${row.getOrElse("subject_id", "")} (${row.getOrElse("subject_label", "")})")
+      scribe.debug(s"Looking for a match for ${row.getOrElse("subject_id", "")} (${row.getOrElse("subject_label", "")})")
       val optMatchResult = rowFillers.to(LazyList).flatMap(_.fillRow(row, headers)).headOption
       if (optMatchResult.isEmpty) {
-        scribe.info(s"Could not fill subject ID $subjectId: no fillers matched")
+        scribe.debug(s"Could not fill subject ID $subjectId: no fillers matched")
+        countNoMatch += 1
         Seq(row)
       } else {
         val result = optMatchResult.head
         val rows = result.map(_.result)
         scribe.info(s"Filled subject ID $subjectId with ${rows}")
+        countMatch += 1
         rows
       }
-    } else Seq(row)
+    } else {
+      // This term already has a pre-existing term.
+      countExistingTerm += 1
+      Seq(row)
+    }
   }).foreach(row => {
     // Write out each row in the correct order.
     writer.writeRow(headers.map(header => row.getOrElse(header, "")))
   })
   writer.close()
+
+  scribe.info(
+    f"""Out of ${rows.size} rows:
+       |  - $countExistingTerm rows (${countExistingTerm.toFloat/rows.size*100}%.2f%%) have existing terms
+       |  - $countNoMatch rows (${countNoMatch.toFloat/rows.size*100}%.2f%%) could not be matched
+       |  - $countMatch rows (${countMatch.toFloat/rows.size*100}%.2f%%) could be matched to this ontology""".stripMargin)
 }
