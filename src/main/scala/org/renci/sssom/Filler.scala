@@ -44,7 +44,7 @@ object Filler extends App {
     )
 
     val fillPredicateId: ScallopOption[String] = opt[String](
-      descr = "Choose the predicate ID to fill in (e.g. 'skos:narrowMatch')"
+      descr = "Choose the predicate ID to fill in (e.g. 'skos:narrowMatch') in addition to blank rows"
     )
 
     verify()
@@ -82,7 +82,7 @@ object Filler extends App {
     // Should we fill in this row?
     val subjectId = row.getOrElse("subject_id", "(none)")
     val predicateId = row.getOrElse("predicate_id", "")
-    if(predicateId.isEmpty || (!conf.fillPredicateId.isSupplied || predicateId == conf.fillPredicateId())) {
+    if(predicateId.isEmpty || (conf.fillPredicateId.isSupplied && predicateId == conf.fillPredicateId())) {
       scribe.debug(s"Looking for a match for ${row.getOrElse("subject_id", "")} (${row.getOrElse("subject_label", "")})")
       val optMatchResult = rowFillers.to(LazyList).flatMap(_.fillRow(row, headers)).headOption
       if (optMatchResult.isEmpty) {

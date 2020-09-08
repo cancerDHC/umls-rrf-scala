@@ -2,7 +2,6 @@ package org.renci.sssom.ontologies
 
 import java.io.File
 
-import org.renci.sssom.SSSOMFiller
 import org.renci.sssom.SSSOMFiller.Row
 
 /**
