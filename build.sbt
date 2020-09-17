@@ -30,6 +30,9 @@ addCommandAlias(
   "; compile:scalafix --check ; test:scalafix --check"
 )
 
+// Add additional repositories.
+resolvers += "EBI Repository" at "https://www.ebi.ac.uk/Tools/maven/repos/content/groups/ebi-repo/"
+
 // Library dependencies.
 libraryDependencies ++= {
   Seq(
@@ -51,6 +54,9 @@ libraryDependencies ++= {
 
     // Add support for CSV
     "com.github.tototoshi"        %% "scala-csv"              % "1.3.6",
+
+    // Add API for accessing the Ontology Lookup Service.
+    "uk.ac.ebi.pride.utilities"   % "ols-client"              % "2.11",
 
     // We need JDBC connection pooling so we can start new connections as needed.
     "org.apache.commons"          % "commons-dbcp2"           % "2.7.0",
