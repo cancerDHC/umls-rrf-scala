@@ -109,7 +109,7 @@ object Filler extends App {
 
   scribe.info(
     f"""Out of ${rows.size} rows:
-       |  - $countExistingTerm rows (${countExistingTerm.toFloat/rows.size*100}%.2f%%) have existing terms
-       |  - $countNoMatch rows (${countNoMatch.toFloat/rows.size*100}%.2f%%) could not be matched
-       |  - $countMatch rows (${countMatch.toFloat/rows.size*100}%.2f%%) could be matched to this ontology""".stripMargin)
+       |  - $countExistingTerm rows (${countExistingTerm.toFloat/rows.size*100}%.2f%%) have existing terms.
+       |  - $countNoMatch rows (${countNoMatch.toFloat/rows.size*100}%.2f%%) could not be matched.
+       |  - $countMatch rows (${countMatch.toFloat/rows.size*100}%.2f%%) could be matched.""".stripMargin)
 }
