@@ -3,7 +3,7 @@ package org.renci.sssom.ontologies
 import java.io.File
 import java.net.{HttpURLConnection, URL}
 
-import org.apache.jena.graph.{Graph, Node, NodeFactory, Triple}
+import org.apache.jena.graph.{Graph, Node, NodeFactory}
 import org.apache.jena.ontology.OntModelSpec
 import org.apache.jena.rdf.model.{ModelFactory, Resource}
 import org.apache.jena.sparql.graph.GraphFactory
@@ -67,7 +67,10 @@ case class OntologyFiller(
     triples.map(triple => {
       val subject = triple.getSubject
       val subjectURI = subject.getURI
-      val subjectLabels = ontologyGraph.find(subject, RDFS.label.asNode(), null).asScala.map(_.getObject.toString(false))
+      val subjectLabels = ontologyGraph
+        .find(subject, RDFS.label.asNode(), null)
+        .asScala
+        .map(_.getObject.toString(false))
       SSSOMFiller.Result(
         row,
         row + ("object_id" -> subjectURI)
@@ -98,9 +101,12 @@ object OntologyFiller {
     // Find out where this URL redirects to.
     val conn = sourceURL.openConnection().asInstanceOf[HttpURLConnection]
     conn.setInstanceFollowRedirects(false)
-    if (conn.getResponseCode == HttpURLConnection.HTTP_MOVED_TEMP || conn.getResponseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+    if (
+      conn.getResponseCode == HttpURLConnection.HTTP_MOVED_TEMP || conn.getResponseCode == HttpURLConnection.HTTP_MOVED_PERM
+    ) {
       val location = conn.getHeaderField("Location")
-      if (location == null) throw new RuntimeException(s"Redirect without 'Location' provided: ${conn}")
+      if (location == null)
+        throw new RuntimeException(s"Redirect without 'Location' provided: ${conn}")
       else getRedirectedURL(new URL(location))
     } else sourceURL
   }
