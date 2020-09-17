@@ -1,12 +1,7 @@
 package org.renci.sssom.ontologies
 
-import java.io.File
 import java.util
 
-import org.apache.jena.graph.{Graph, Node, NodeFactory}
-import org.apache.jena.ontology.OntModelSpec
-import org.apache.jena.rdf.model.ModelFactory
-import org.apache.jena.vocabulary.RDFS
 import org.renci.sssom.SSSOMFiller
 import org.renci.sssom.SSSOMFiller.Row
 
@@ -14,7 +9,6 @@ import scala.jdk.CollectionConverters._
 import uk.ac.ebi.pride.utilities.ols.web.service.client.OLSClient
 import uk.ac.ebi.pride.utilities.ols.web.service.config.OLSWsConfigProd
 import uk.ac.ebi.pride.utilities.ols.web.service.model.Term
-
 
 /**
   * A generic class for filling in SSSOM files with terms from the Ontology Lookup Service (OLS).
@@ -95,5 +89,3 @@ class OntologyLookupServiceFiller extends SSSOMFiller {
     if (results.isEmpty) None else Some(results)
   }
 }
-
-

@@ -5,9 +5,8 @@ import java.net.{HttpURLConnection, URL}
 
 import org.apache.jena.graph.{Graph, Node, NodeFactory, Triple}
 import org.apache.jena.ontology.OntModelSpec
-import org.apache.jena.rdf.model.{ModelFactory, Resource}
+import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.sparql.graph.GraphFactory
-import org.apache.jena.util.iterator.ExtendedIterator
 import org.apache.jena.vocabulary.RDFS
 import org.renci.sssom.SSSOMFiller
 import org.renci.sssom.SSSOMFiller.Row
@@ -18,13 +17,13 @@ import scala.jdk.CollectionConverters._
   * A generic class for filling in SSSOM files with terms from an ontology.
   */
 case class OntologyFiller(
-                           ontology: File,
-                           predicates: Set[Node] = Set(
-                             RDFS.label.asNode(),
-                             NodeFactory.createURI("http://www.geneontology.org/formats/oboInOwl#hasExactSynonym")
-                           )
-                         ) extends SSSOMFiller {
-  val owlModelSpec = new OntModelSpec( OntModelSpec.OWL_LITE_MEM )
+  ontology: File,
+  predicates: Set[Node] = Set(
+    RDFS.label.asNode(),
+    NodeFactory.createURI("http://www.geneontology.org/formats/oboInOwl#hasExactSynonym")
+  )
+) extends SSSOMFiller {
+  val owlModelSpec = new OntModelSpec(OntModelSpec.OWL_LITE_MEM)
   val owlModel = ModelFactory.createOntologyModel(owlModelSpec)
   owlModel.read(ontology.getAbsolutePath)
   val ontologyGraph: Graph = owlModel.getGraph
@@ -32,17 +31,15 @@ case class OntologyFiller(
 
   // Add an 'rdfs:label' in lowercase so we don't have to worry about casing issues.
   val indexes = GraphFactory.createDefaultGraph()
-  ontologyGraph.find()
+  ontologyGraph
+    .find()
     .filterKeep(tr => predicates.contains(tr.getPredicate))
     .forEachRemaining(tr => {
       val lowercased = tr.getObject.getLiteralLexicalForm.toLowerCase()
       // scribe.info(s"Translated label '${tr.getObject.getLiteralLexicalForm}' to '${lowercased}'")
 
-      indexes.add(new Triple(
-        tr.getSubject,
-        RDFS.label.asNode(),
-        NodeFactory.createLiteral(lowercased)
-      ))
+      indexes
+        .add(new Triple(tr.getSubject, RDFS.label.asNode(), NodeFactory.createLiteral(lowercased)))
     })
   indexes.find().forEachRemaining(tr => ontologyGraph.add(tr))
   scribe.info(s"Added consistent lowercase labels.")
@@ -60,8 +57,9 @@ case class OntologyFiller(
   def identifyResultsForRow(row: Row): Seq[SSSOMFiller.Result] = {
     val triples = for {
       subjectLabel <- extractSubjectLabelsFromRow(row).distinct
-      triple <- ontologyGraph.find(null, null, NodeFactory.createLiteral(subjectLabel.toLowerCase)).asScala
-        if predicates.contains(triple.getPredicate)
+      triple <-
+        ontologyGraph.find(null, null, NodeFactory.createLiteral(subjectLabel.toLowerCase)).asScala
+      if predicates.contains(triple.getPredicate)
     } yield triple
 
     triples.map(triple => {
