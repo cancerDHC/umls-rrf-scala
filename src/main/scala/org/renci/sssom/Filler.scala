@@ -3,7 +3,7 @@ package org.renci.sssom
 import java.io.{File, FileWriter, OutputStreamWriter, PrintWriter}
 
 import com.github.tototoshi.csv.{CSVReader, CSVWriter, TSVFormat}
-import org.renci.sssom.ontologies.{LivestockBreedOntologyFiller, OntologyFiller}
+import org.renci.sssom.ontologies.{LivestockBreedOntologyFiller, OntologyFiller, OntologyLookupServiceFiller}
 import org.rogach.scallop.exceptions.ScallopException
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 
@@ -43,6 +43,10 @@ object Filler extends App {
       descr = "Fill terms from the Livestock Breed Ontology"
     )
 
+    val fillFromOls: ScallopOption[Boolean] = opt[Boolean](
+      descr = "Fill terms from the Ontology Lookup Service"
+    )
+
     val fillPredicateId: ScallopOption[String] = opt[String](
       descr = "Choose the predicate ID to fill in (e.g. 'skos:narrowMatch') in addition to blank rows"
     )
@@ -56,7 +60,8 @@ object Filler extends App {
   val outputWriter = if(conf.outputFile.isSupplied) new PrintWriter(new FileWriter(conf.outputFile())) else new OutputStreamWriter(System.out)
 
   // Build a list of SSSOMRowFillers that we need to apply here.
-  val rowFillers: Seq[OntologyFiller] = (
+  val rowFillers: Seq[SSSOMFiller] = (
+    (if (conf.fillFromOls()) Some(new OntologyLookupServiceFiller()) else None) +:
     (if (conf.fillLivestockBreedOntology()) Some(new LivestockBreedOntologyFiller()) else None) +:
     conf.fromOntology().map(file => Some(OntologyFiller(file)))
   ).flatten
