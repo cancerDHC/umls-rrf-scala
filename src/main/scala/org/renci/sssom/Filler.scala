@@ -50,10 +50,6 @@ object Filler extends App {
       descr = "Choose the predicate ID to fill in (e.g. 'skos:narrowMatch') in addition to blank rows"
     )
 
-    val fillPredicateId: ScallopOption[String] = opt[String](descr =
-      "Choose the predicate ID to fill in (e.g. 'skos:narrowMatch') in addition to blank rows"
-    )
-
     verify()
   }
 

@@ -3,7 +3,7 @@ package org.renci.sssom.ontologies
 import java.io.File
 import java.net.{HttpURLConnection, URL}
 
-import org.apache.jena.graph.{Graph, Node, NodeFactory}
+import org.apache.jena.graph.{Graph, Node, NodeFactory, Triple}
 import org.apache.jena.ontology.OntModelSpec
 import org.apache.jena.rdf.model.{ModelFactory, Resource}
 import org.apache.jena.sparql.graph.GraphFactory
