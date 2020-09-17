@@ -39,12 +39,11 @@ object Filler extends App {
       default = Some(List[File]())
     )
 
-    val fillLivestockBreedOntology: ScallopOption[Boolean] = opt[Boolean](
-      descr = "Fill terms from the Livestock Breed Ontology"
-    )
+    val fillLivestockBreedOntology: ScallopOption[Boolean] =
+      opt[Boolean](descr = "Fill terms from the Livestock Breed Ontology")
 
-    val fillPredicateId: ScallopOption[String] = opt[String](
-      descr = "Choose the predicate ID to fill in (e.g. 'skos:narrowMatch') in addition to blank rows"
+    val fillPredicateId: ScallopOption[String] = opt[String](descr =
+      "Choose the predicate ID to fill in (e.g. 'skos:narrowMatch') in addition to blank rows"
     )
 
     verify()
@@ -52,13 +51,17 @@ object Filler extends App {
 
   // Parse command line arguments.
   val conf = new Conf(args.toIndexedSeq)
-  val inputSource = if(conf.inputFile.isSupplied) Source.fromFile(conf.inputFile()) else Source.fromInputStream(System.in, "UTF-8")
-  val outputWriter = if(conf.outputFile.isSupplied) new PrintWriter(new FileWriter(conf.outputFile())) else new OutputStreamWriter(System.out)
+  val inputSource =
+    if (conf.inputFile.isSupplied) Source.fromFile(conf.inputFile())
+    else Source.fromInputStream(System.in, "UTF-8")
+  val outputWriter =
+    if (conf.outputFile.isSupplied) new PrintWriter(new FileWriter(conf.outputFile()))
+    else new OutputStreamWriter(System.out)
 
   // Build a list of SSSOMRowFillers that we need to apply here.
   val rowFillers: Seq[OntologyFiller] = (
     (if (conf.fillLivestockBreedOntology()) Some(new LivestockBreedOntologyFiller()) else None) +:
-    conf.fromOntology().map(file => Some(OntologyFiller(file)))
+      conf.fromOntology().map(file => Some(OntologyFiller(file)))
   ).flatten
   scribe.info(s"Active row fillers: ${rowFillers.mkString(", ")}")
 
@@ -78,38 +81,46 @@ object Filler extends App {
 
   val writer = CSVWriter.open(outputWriter)(new TSVFormat {})
   writer.writeRow(headers)
-  rows.flatMap(row => {
-    // Should we fill in this row?
-    val subjectId = row.getOrElse("subject_id", "(none)")
-    val predicateId = row.getOrElse("predicate_id", "")
-    if(predicateId.isEmpty || (conf.fillPredicateId.isSupplied && predicateId == conf.fillPredicateId())) {
-      scribe.debug(s"Looking for a match for ${row.getOrElse("subject_id", "")} (${row.getOrElse("subject_label", "")})")
-      val optMatchResult = rowFillers.to(LazyList).flatMap(_.fillRow(row, headers)).headOption
-      if (optMatchResult.isEmpty) {
-        scribe.debug(s"Could not fill subject ID $subjectId: no fillers matched")
-        countNoMatch += 1
-        Seq(row)
+  rows
+    .flatMap(row => {
+      // Should we fill in this row?
+      val subjectId = row.getOrElse("subject_id", "(none)")
+      val predicateId = row.getOrElse("predicate_id", "")
+      if (
+        predicateId.isEmpty || (conf.fillPredicateId.isSupplied && predicateId == conf
+          .fillPredicateId())
+      ) {
+        scribe.debug(
+          s"Looking for a match for ${row.getOrElse("subject_id", "")} (${row.getOrElse("subject_label", "")})"
+        )
+        val optMatchResult = rowFillers.to(LazyList).flatMap(_.fillRow(row, headers)).headOption
+        if (optMatchResult.isEmpty) {
+          scribe.debug(s"Could not fill subject ID $subjectId: no fillers matched")
+          countNoMatch += 1
+          Seq(row)
+        } else {
+          val result = optMatchResult.head
+          val rows = result.map(_.result)
+          scribe.info(s"Filled subject ID $subjectId with ${rows}")
+          countMatch += 1
+          rows
+        }
       } else {
-        val result = optMatchResult.head
-        val rows = result.map(_.result)
-        scribe.info(s"Filled subject ID $subjectId with ${rows}")
-        countMatch += 1
-        rows
+        // This term already has a pre-existing term.
+        countExistingTerm += 1
+        Seq(row)
       }
-    } else {
-      // This term already has a pre-existing term.
-      countExistingTerm += 1
-      Seq(row)
-    }
-  }).foreach(row => {
-    // Write out each row in the correct order.
-    writer.writeRow(headers.map(header => row.getOrElse(header, "")))
-  })
+    })
+    .foreach(row => {
+      // Write out each row in the correct order.
+      writer.writeRow(headers.map(header => row.getOrElse(header, "")))
+    })
   writer.close()
 
   scribe.info(
     f"""Out of ${rows.size} rows:
-       |  - $countExistingTerm rows (${countExistingTerm.toFloat/rows.size*100}%.2f%%) have existing terms.
-       |  - $countNoMatch rows (${countNoMatch.toFloat/rows.size*100}%.2f%%) could not be matched.
-       |  - $countMatch rows (${countMatch.toFloat/rows.size*100}%.2f%%) could be matched.""".stripMargin)
+       |  - $countExistingTerm rows (${countExistingTerm.toFloat / rows.size * 100}%.2f%%) have existing terms.
+       |  - $countNoMatch rows (${countNoMatch.toFloat / rows.size * 100}%.2f%%) could not be matched.
+       |  - $countMatch rows (${countMatch.toFloat / rows.size * 100}%.2f%%) could be matched.""".stripMargin
+  )
 }

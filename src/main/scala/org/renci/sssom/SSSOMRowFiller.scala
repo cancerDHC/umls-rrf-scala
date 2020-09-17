@@ -8,6 +8,7 @@ package org.renci.sssom
   * not provided in the input file may not be written into the output file.
   */
 abstract class SSSOMFiller {
+
   /**
     * Fill in the input row. The list of all headers is also provided.
     * @return None if this row could not be filled, and Some[Row] if it can.
@@ -16,13 +17,10 @@ abstract class SSSOMFiller {
 }
 
 object SSSOMFiller {
+
   /** A row is a map of column names to their values in this row. */
   type Row = Map[String, String]
 
   /** Wraps a result of a row filler operation. */
-  case class Result(
-    source: Row,
-    result: Row,
-    filler: SSSOMFiller
-  )
+  case class Result(source: Row, result: Row, filler: SSSOMFiller)
 }

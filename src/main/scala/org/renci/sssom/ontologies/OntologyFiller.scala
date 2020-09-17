@@ -3,10 +3,9 @@ package org.renci.sssom.ontologies
 import java.io.File
 import java.net.{HttpURLConnection, URL}
 
-import org.apache.jena.graph.{Graph, Node, NodeFactory, Triple}
+import org.apache.jena.graph.{Graph, Node, NodeFactory}
 import org.apache.jena.ontology.OntModelSpec
-import org.apache.jena.rdf.model.{ModelFactory, Resource}
-import org.apache.jena.util.iterator.ExtendedIterator
+import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.vocabulary.RDFS
 import org.renci.sssom.SSSOMFiller
 import org.renci.sssom.SSSOMFiller.Row
@@ -17,7 +16,7 @@ import scala.jdk.CollectionConverters._
   * A generic class for filling in SSSOM files with terms from an ontology.
   */
 case class OntologyFiller(ontology: File) extends SSSOMFiller {
-  val owlModelSpec = new OntModelSpec( OntModelSpec.OWL_LITE_MEM )
+  val owlModelSpec = new OntModelSpec(OntModelSpec.OWL_LITE_MEM)
   val owlModel = ModelFactory.createOntologyModel(owlModelSpec)
   owlModel.read(ontology.getAbsolutePath)
   val ontologyGraph: Graph = owlModel.getGraph
@@ -42,13 +41,16 @@ case class OntologyFiller(ontology: File) extends SSSOMFiller {
     val triples = for {
       subjectLabel <- extractSubjectLabelsFromRow(row)
       triple <- ontologyGraph.find(null, null, NodeFactory.createLiteral(subjectLabel)).asScala
-        if predicates.contains(triple.getPredicate)
+      if predicates.contains(triple.getPredicate)
     } yield triple
 
     triples.map(triple => {
       val subject = triple.getSubject
       val subjectURI = subject.getURI
-      val subjectLabels = ontologyGraph.find(subject, RDFS.label.asNode(), null).asScala.map(_.getObject.toString(false))
+      val subjectLabels = ontologyGraph
+        .find(subject, RDFS.label.asNode(), null)
+        .asScala
+        .map(_.getObject.toString(false))
       SSSOMFiller.Result(
         row,
         row + ("predicate_id" -> subjectURI)
@@ -75,9 +77,12 @@ object OntologyFiller {
     // Find out where this URL redirects to.
     val conn = sourceURL.openConnection().asInstanceOf[HttpURLConnection]
     conn.setInstanceFollowRedirects(false)
-    if (conn.getResponseCode == HttpURLConnection.HTTP_MOVED_TEMP || conn.getResponseCode == HttpURLConnection.HTTP_MOVED_PERM) {
+    if (
+      conn.getResponseCode == HttpURLConnection.HTTP_MOVED_TEMP || conn.getResponseCode == HttpURLConnection.HTTP_MOVED_PERM
+    ) {
       val location = conn.getHeaderField("Location")
-      if (location == null) throw new RuntimeException(s"Redirect without 'Location' provided: ${conn}")
+      if (location == null)
+        throw new RuntimeException(s"Redirect without 'Location' provided: ${conn}")
       else getRedirectedURL(new URL(location))
     } else sourceURL
   }
