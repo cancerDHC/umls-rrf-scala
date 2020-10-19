@@ -16,6 +16,7 @@ import scala.io.Source
 /** A wrapper for RRFConcepts that uses SQLite */
 class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     extends RRFConcepts(file, filename) {
+  val cacheTimePeriod = None // Some(2.hours)
   implicit val halfMapSeqCache = CaffeineCache[Seq[HalfMap]]
   implicit val halfMapSetCache = CaffeineCache[Set[HalfMap]]
   implicit val stringSetCache = CaffeineCache[Set[String]]
@@ -125,19 +126,19 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
 
   /** Return all known labels for a set of concepts */
   def getLabelsForCodes(source: String, ids: Seq[String]): Set[String] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       ids.flatMap(getLabelsForCode(source, _)).toSet
     }
 
   /** Return all known labels for a single concept */
   def getLabelsForCode(source: String, id: String): Set[String] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       getHalfMapsForCodes(source, Seq(id)).map(_.label).toSet
     }
 
   /** Return all known labels for a single CUI */
   def getLabelsForCUI(cui: String): Set[String] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       getHalfMapsByCUIs(Set(cui)).map(_.label).toSet
     }
 
@@ -151,7 +152,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     * @return A Seq of HalfMaps for the provided identifiers in the provided source.
     */
   def getHalfMapsForCodes(source: String, ids: Seq[String]): Seq[HalfMap] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       // Retrieve all the fromIds.
       val conn = db.createConnection()
       if (ids.isEmpty) {
@@ -286,7 +287,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
 
   // Look up maps by CUIs.
   def getHalfMapsByCUIs(cuis: Set[String], toSource: String): Seq[HalfMap] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       if (cuis.isEmpty) return Seq()
 
       val conn = db.createConnection()
@@ -317,7 +318,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     }
 
   def getHalfMapsByCUIs(cuis: Set[String]): Seq[HalfMap] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       if (cuis.isEmpty) return Seq()
 
       val conn = db.createConnection()
@@ -348,7 +349,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
 
   // Get the CUIs for given AUIs.
   def getCUIsForAUI(auis: Seq[String]): Set[String] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       if (auis.isEmpty) return Set()
 
       val conn = db.createConnection()
@@ -371,7 +372,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     }
 
   def getAUIsForCUIs(cuis: Seq[String]): Set[String] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       if (cuis.isEmpty) return Set()
 
       val conn = db.createConnection()
@@ -394,7 +395,7 @@ class DbConcepts(db: ConnectionFactory, file: File, filename: String)
     }
 
   def getCUIsForCodes(source: String, ids: Seq[String]): Map[String, Seq[String]] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       if (ids.isEmpty) return Map.empty
 
       val conn = db.createConnection()
