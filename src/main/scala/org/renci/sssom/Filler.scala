@@ -90,6 +90,7 @@ object Filler extends App {
   val writer = CSVWriter.open(outputWriter)(new TSVFormat {})
   writer.writeRow(headers)
   rows
+    .to(LazyList)
     .flatMap(row => {
       // Should we fill in this row?
       val subjectId = row.getOrElse("subject_id", "(none)")
