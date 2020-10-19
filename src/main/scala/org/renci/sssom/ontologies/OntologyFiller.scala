@@ -76,7 +76,7 @@ case class OntologyFiller(
           + ("predicate_id" -> "skos:exactMatch")
           + ("predicate_label" -> "The subject and the object can, with a high degree of confidence, be used interchangeably across a wide range of information retrieval applications.")
           + ("comment" -> s"Ontology $ontology contains triple asserting $triple")
-          + ("match_type" -> "SSSOMC:Complex")
+          + ("match_type" -> "http://purl.org/sssom/type/Complex")
           + ("mapping_set_id" -> ontology.getName),
         this
       )
