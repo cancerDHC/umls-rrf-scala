@@ -43,6 +43,12 @@ libraryDependencies ++= {
     // Command line argument parsing.
     "org.rogach"                  %% "scallop"                % "3.3.2",
 
+    // HTTP requests.
+    "com.lihaoyi"                 %% "requests"               % "0.6.5",
+
+    // JSON parsing.
+    "com.lihaoyi"                 %% "ujson"                  % "0.9.5",
+
     // Add support for CSV.
     "com.github.tototoshi"        %% "scala-csv"              % "1.3.6",
 
@@ -72,7 +78,7 @@ libraryDependencies ++= {
     "com.github.cb372"            %% "scalacache-caffeine"    % "0.28.0",
     "com.github.ben-manes.caffeine" % "caffeine"              % "2.8.1",
 
-  // Testing
+    // Testing
     "com.lihaoyi"                 %% "utest"                  % "0.7.1" % "test"
   )
 }
