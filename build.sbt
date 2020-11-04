@@ -40,11 +40,14 @@ libraryDependencies ++= {
     // Command line argument parsing.
     "org.rogach"                  %% "scallop"                % "3.3.2",
 
-    // Import Apache Jena to read JSON-LD.
-    // "org.apache.jena"             % "jena-core"               % "3.14.0",
+    // Add support for CSV.
+    "com.github.tototoshi"        %% "scala-csv"              % "1.3.6",
+
+    // Import Apache Jena to read ontologies.
+    "org.apache.jena"             % "jena-core"               % "3.14.0",
 
     // https://mvnrepository.com/artifact/org.apache.jena/jena-arq
-    // "org.apache.jena"             % "jena-arq"                % "3.14.0",
+    "org.apache.jena"             % "jena-arq"                % "3.14.0",
 
     // Add support for CSV
     "com.github.tototoshi"        %% "scala-csv"              % "1.3.6",
@@ -52,7 +55,7 @@ libraryDependencies ++= {
     // We need JDBC connection pooling so we can start new connections as needed.
     "org.apache.commons"          % "commons-dbcp2"           % "2.7.0",
 
-  // Add support for SQLite via JDBC
+    // Add support for SQLite via JDBC
     "org.xerial"                  % "sqlite-jdbc"             % "3.30.1",
 
     // Add support for calculating hashes for files.
