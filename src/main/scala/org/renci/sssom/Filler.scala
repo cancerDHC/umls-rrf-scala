@@ -73,6 +73,18 @@ object Filler extends App {
   ).flatten
   scribe.info(s"Active row fillers: ${rowFillers.mkString(", ")}")
 
+  val predicateIds: Seq[String] = if (!conf.fillPredicateId.isSupplied) {
+    scribe.info("No predicate IDs supplied: only rows missing predicate IDs will be fixed.")
+    Seq()
+  } else {
+    val predicates = conf.fillPredicateId()
+      .split("\\s*,\\s*")
+      .map(_.replaceAll("^\\s*'(.*)'\\s*$", "$1"))
+
+    scribe.info(s"Predicate IDs being filled: ${predicates}")
+    predicates
+  }
+
   if (rowFillers.isEmpty) {
     scribe.error("No row fillers set! Use --help to see a list of possible filters.")
     System.exit(1)
@@ -90,13 +102,13 @@ object Filler extends App {
   val writer = CSVWriter.open(outputWriter)(new TSVFormat {})
   writer.writeRow(headers)
   rows
+    .to(LazyList)
     .flatMap(row => {
       // Should we fill in this row?
       val subjectId = row.getOrElse("subject_id", "(none)")
       val predicateId = row.getOrElse("predicate_id", "")
       if (
-        predicateId.isEmpty || (conf.fillPredicateId.isSupplied && predicateId == conf
-          .fillPredicateId())
+        predicateId.isEmpty || predicateIds.contains(predicateId)
       ) {
         scribe.debug(
           s"Looking for a match for ${row.getOrElse("subject_id", "")} (${row.getOrElse("subject_label", "")})"

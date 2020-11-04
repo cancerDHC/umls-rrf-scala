@@ -47,7 +47,7 @@ class OntologyLookupServiceFiller extends SSSOMFiller {
         + ("predicate_id" -> "skos:exactMatch")
         + ("predicate_label" -> "The subject and the object can, with a high degree of confidence, be used interchangeably across a wide range of information retrieval applications.")
         + ("comment" -> s"The EBI Ontology Lookup Service suggested this term as an exact match for label '$label'.")
-        + ("match_type" -> "SSSOMC:Complex")
+        + ("match_type" -> "http://purl.org/sssom/type/Complex")
         + ("mapping_set_id" -> "https://www.ebi.ac.uk/ols/"),
       this
     )
@@ -70,7 +70,7 @@ class OntologyLookupServiceFiller extends SSSOMFiller {
           + ("predicate_id" -> "skos:relatedMatch")
           + ("predicate_label" -> "The subject and the object are associated in some unspecified way.")
           + ("comment" -> s"The EBI Ontology Lookup Service suggested this term as a non-exact match for label '$label'.")
-          + ("match_type" -> "SSSOMC:Complex")
+          + ("match_type" -> "http://purl.org/sssom/type/Complex")
           + ("mapping_set_id" -> "https://www.ebi.ac.uk/ols/"),
         this
       )

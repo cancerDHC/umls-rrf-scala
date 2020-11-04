@@ -32,6 +32,7 @@ case class HierarchyEntry(
 class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
     extends RRFHierarchy(file, filename) {
 
+  val cacheTimePeriod = None // Some(2.hours)
   implicit val stringSetCache = CaffeineCache[Set[String]]
 
   /** The name of the table used to store this information. We include the SHA-256 hash so we reload it if it changes. */
@@ -97,7 +98,7 @@ class DbHierarchy(db: ConnectionFactory, file: File, filename: String)
   }
 
   override def getParents(atomIdSet: Set[String]): Set[String] =
-    memoizeSync(Some(2.seconds)) {
+    memoizeSync(cacheTimePeriod) {
       if (atomIdSet.isEmpty) return Set()
 
       val conn = db.createConnection()
