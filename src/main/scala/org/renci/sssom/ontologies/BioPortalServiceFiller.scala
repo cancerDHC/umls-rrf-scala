@@ -63,8 +63,10 @@ class BioPortalServiceFiller extends SSSOMFiller {
         }
 
         Map(
-          "predicate_id" -> term("@id").str,
-          "predicate_label" -> labels.mkString("|"),
+          "predicate_id" -> "skos:exactMatch",
+          "predicate_label" -> "The subject and the object can, with a high degree of confidence, be used interchangeably across a wide range of information retrieval applications.",
+          "object_id" -> term("@id").str,
+          "object_label" -> labels.mkString("|"),
           "comment" -> s"BioPortal suggested this term as an exact match for label '$label' with matchType '${term("matchType")}'.",
           "match_type" -> "http://purl.org/sssom/type/Complex",
           "mapping_set_id" -> "http://data.bioontology.org/documentation#nav_search"
